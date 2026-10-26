@@ -1,6 +1,6 @@
 /**
  * Adjusting Writing Style - Universal Content Script
- * Tự động quét, bắt biến động và thay thế từ vựng trên mọi trang web đọc truyện.
+ * Scans DOM text nodes, listens for dynamic mutations, and replaces terms in-place.
  */
 
 (() => {
@@ -9,7 +9,7 @@
   let isProcessing = false;
 
   // ==========================================
-  // 1. CASE PRESERVATION ENGINE (Aa)
+  // 1. CASE PRESERVATION ENGINE
   // ==========================================
   const CasePreserver = {
     detect(text) {
@@ -62,7 +62,6 @@
     return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   }
 
-  // Bỏ qua các thẻ hệ thống không chứa nội dung đọc
   function shouldFilterTag(node) {
     const tag = node.parentElement?.tagName;
     return tag === 'SCRIPT' || 
@@ -79,7 +78,6 @@
   function replaceTextInString(text, dict) {
     if (!text || dict.length === 0) return text;
 
-    // Xây dựng regex tổng hợp
     const pattern = new RegExp(
       dict.map(d => `(${escapeRegExp(d.from)})`).join('|'),
       'gi'
@@ -111,18 +109,16 @@
   function scanAndReplace(root = document.body) {
     if (!root || activeDictionary.length === 0) return;
 
-    // Sắp xếp cụm từ dài lên trước
+    // Prioritize longer phrases before shorter substrings
     const sortedDict = [...activeDictionary].sort((a, b) => b.from.length - a.from.length);
 
     isProcessing = true;
     try {
-      // 1. Quét document.title nếu có
       if (document.title && root === document.body) {
         const newTitle = replaceTextInString(document.title, sortedDict);
         if (document.title !== newTitle) document.title = newTitle;
       }
 
-      // 2. Quét toàn bộ TextNodes trong DOM
       const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
         acceptNode: (node) => {
           if (shouldFilterTag(node)) return NodeFilter.FILTER_REJECT;
@@ -135,7 +131,7 @@
         processTextNode(node, sortedDict);
       }
 
-      // 3. Tự động gỡ bỏ thuộc tính chặn bôi đen/copy của một số trang đọc truyện
+      // Remove copy-protection overlays if present on reader sites
       const noSelects = document.querySelectorAll('.no-select, [style*="user-select: none"]');
       noSelects.forEach(el => {
         el.classList.remove('no-select');
@@ -147,7 +143,7 @@
   }
 
   // ==========================================
-  // 4. MUTATION OBSERVER (DYNAMIC RENDER WATCHER)
+  // 4. MUTATION OBSERVER FOR DYNAMIC CONTENT
   // ==========================================
   const observer = new MutationObserver((mutations) => {
     if (isProcessing || activeDictionary.length === 0) return;
@@ -155,7 +151,6 @@
     const sortedDict = [...activeDictionary].sort((a, b) => b.from.length - a.from.length);
 
     for (const mutation of mutations) {
-      // Khi có các node mới sinh ra (do Ajax, Decrypt JS, Infinite scroll, SPA)
       for (const addedNode of mutation.addedNodes) {
         if (addedNode.nodeType === Node.TEXT_NODE) {
           processTextNode(addedNode, sortedDict);
@@ -187,7 +182,6 @@
     }
   }
 
-  // Lắng nghe cập nhật tức thì từ Popup khi người dùng thêm/xóa/import từ
   if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.onMessage) {
     chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       if (message.action === 'APPLY_DICTIONARY') {
@@ -199,7 +193,6 @@
     });
   }
 
-  // Khởi chạy khi tài liệu sẵn sàng
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
       loadAndApply();

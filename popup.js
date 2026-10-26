@@ -1,10 +1,9 @@
 /**
  * Adjusting Writing Style - Popup Controller
- * Quản lý giao diện, lưu trữ chrome.storage.local, nhập/xuất file .txt, và đồng bộ với Content Script.
+ * Manages the UI, local storage persistence, text file I/O, and tab synchronization.
  */
 
 (() => {
-  // Key lưu trữ trong chrome.storage
   const STORAGE_KEY = 'adjusting_writing_style_dictionary';
 
   // DOM Elements
@@ -28,12 +27,12 @@
   const btnExport = document.getElementById('btn-export');
 
   // State
-  let dictionary = []; // Mặc định không có sample data ban đầu
-  let currentHostname = 'Trang đọc truyện';
+  let dictionary = [];
+  let currentHostname = 'Reading page';
   let isLoggedIn = false;
 
   // ==========================================
-  // STORAGE ADAPTER (Chrome Storage + LocalStorage Fallback)
+  // STORAGE ADAPTER
   // ==========================================
   const StorageAdapter = {
     async get() {
@@ -81,7 +80,6 @@
   function renderList() {
     termCountEl.textContent = dictionary.length;
 
-    // Xóa các row cũ, giữ lại emptyState
     const rows = termListContainer.querySelectorAll('.term-row');
     rows.forEach(r => r.remove());
 
@@ -94,7 +92,6 @@
     emptyStateEl.style.display = 'none';
     btnClearAll.style.display = 'inline-block';
 
-    // Tạo các row
     dictionary.forEach((item, index) => {
       const row = document.createElement('div');
       row.className = 'term-row';
@@ -118,12 +115,11 @@
       pairContent.appendChild(arrowSpan);
       pairContent.appendChild(replacementSpan);
 
-      // Nút xóa
       const btnRemove = document.createElement('button');
       btnRemove.type = 'button';
       btnRemove.className = 'btn-remove-term';
-      btnRemove.title = `Xóa cụm từ "${item.from}"`;
-      btnRemove.setAttribute('aria-label', `Xóa từ ${item.from}`);
+      btnRemove.title = `Remove "${item.from}"`;
+      btnRemove.setAttribute('aria-label', `Remove ${item.from}`);
       btnRemove.innerHTML = `
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
@@ -148,24 +144,23 @@
     to = to.trim();
 
     if (!from || !to) {
-      showFeedback('Vui lòng nhập cả từ gốc và từ thay thế.', 'error');
+      showFeedback('Please enter both original and replacement terms.', 'error');
       return;
     }
 
     if (from.toLowerCase() === to.toLowerCase()) {
-      showFeedback('Từ gốc và từ thay thế không được trùng nhau.', 'error');
+      showFeedback('Original and replacement terms cannot be identical.', 'error');
       return;
     }
 
-    // Kiểm tra trùng lặp
     const existingIndex = dictionary.findIndex(d => d.from.toLowerCase() === from.toLowerCase());
     if (existingIndex >= 0) {
       dictionary[existingIndex].to = to;
       dictionary[existingIndex].preserveCase = preserveCase;
-      showFeedback(`Đã cập nhật: "${from}" ➜ "${to}"`);
+      showFeedback(`Updated: "${from}" ➜ "${to}"`);
     } else {
       dictionary.unshift({ from, to, preserveCase });
-      showFeedback(`Đã thêm: "${from}" ➜ "${to}"`);
+      showFeedback(`Added: "${from}" ➜ "${to}"`);
     }
 
     await StorageAdapter.set(dictionary);
@@ -182,22 +177,22 @@
     await StorageAdapter.set(dictionary);
     renderList();
     notifyContentScript();
-    showFeedback(`Đã xóa cụm từ "${removed.from}"`);
+    showFeedback(`Removed "${removed.from}"`);
   }
 
   async function clearAllTerms() {
     if (dictionary.length === 0) return;
-    if (confirm('Bạn có chắc chắn muốn xóa toàn bộ danh sách từ điển này?')) {
+    if (confirm('Are you sure you want to clear the entire dictionary?')) {
       dictionary = [];
       await StorageAdapter.set(dictionary);
       renderList();
       notifyContentScript();
-      showFeedback('Đã làm trống danh sách từ điển.');
+      showFeedback('Dictionary cleared.');
     }
   }
 
   // ==========================================
-  // SYNC WITH ACTIVE TAB (CONTENT SCRIPT)
+  // SYNC WITH ACTIVE TAB
   // ==========================================
   function notifyContentScript() {
     if (typeof chrome !== 'undefined' && chrome.tabs && chrome.tabs.query) {
@@ -207,7 +202,7 @@
             action: 'APPLY_DICTIONARY',
             dictionary: dictionary
           }).catch(() => {
-            // Tab có thể không có content script (vd: chrome://, settings...)
+            // Tab might not host a content script
           });
         }
       });
@@ -223,10 +218,10 @@
         if (tabs && tabs[0] && tabs[0].url) {
           try {
             const url = new URL(tabs[0].url);
-            currentHostname = url.hostname || 'Trang đọc truyện';
+            currentHostname = url.hostname || 'Reading page';
             siteHostnameEl.textContent = currentHostname;
           } catch (e) {
-            siteHostnameEl.textContent = 'Trang web';
+            siteHostnameEl.textContent = 'Web page';
           }
         }
       });
@@ -243,30 +238,30 @@
   btnHome.addEventListener('click', () => {
     termListContainer.scrollTop = 0;
     inputOriginal.focus();
-    showFeedback('Đã quay về đầu danh sách từ điển.');
+    showFeedback('Scrolled to top.');
   });
 
   // 2. Login Button
   btnLogin.addEventListener('click', () => {
     if (!isLoggedIn) {
-      const username = prompt('Nhập tên tài khoản hoặc email để đồng bộ từ điển:');
+      const username = prompt('Enter your username or email for cloud sync:');
       if (username && username.trim()) {
         isLoggedIn = true;
         loginLabel.textContent = username.trim().split('@')[0];
-        btnLogin.title = `Đã đăng nhập: ${username.trim()}`;
-        showFeedback(`Xin chào, ${username.trim()}! Đã bật đồng bộ.`);
+        btnLogin.title = `Logged in: ${username.trim()}`;
+        showFeedback(`Welcome, ${username.trim()}! Cloud sync enabled.`);
       }
     } else {
-      if (confirm('Bạn có muốn đăng xuất khỏi tài khoản này?')) {
+      if (confirm('Do you want to sign out of this account?')) {
         isLoggedIn = false;
         loginLabel.textContent = 'Login';
-        btnLogin.title = 'Đăng nhập tài khoản';
-        showFeedback('Đã đăng xuất.');
+        btnLogin.title = 'Sign in';
+        showFeedback('Signed out.');
       }
     }
   });
 
-  // 3. Import Button (Text File)
+  // 3. Import Button
   btnImport.addEventListener('click', () => {
     fileImportInput.click();
   });
@@ -304,28 +299,28 @@
       await StorageAdapter.set(dictionary);
       renderList();
       notifyContentScript();
-      showFeedback(`Đã nạp thành công ${count} cặp từ từ file!`);
-      fileImportInput.value = ''; // Reset input file
+      showFeedback(`Successfully imported ${count} term pairs.`);
+      fileImportInput.value = '';
     };
 
     reader.onerror = () => {
-      showFeedback('Lỗi đọc file. Vui lòng thử lại.', 'error');
+      showFeedback('Error reading file. Please try again.', 'error');
     };
 
     reader.readAsText(file, 'utf-8');
   });
 
-  // 4. Export Button (Text File)
+  // 4. Export Button
   btnExport.addEventListener('click', () => {
     if (dictionary.length === 0) {
-      showFeedback('Danh sách trống, không có từ nào để xuất.', 'error');
+      showFeedback('Dictionary is empty. Nothing to export.', 'error');
       return;
     }
 
     const textLines = [
-      `# TỪ ĐIỂN THUẬT NGỮ - ADJUSTING WRITING STYLE`,
-      `# Ngày xuất: ${new Date().toLocaleDateString('vi-VN')}`,
-      `# Định dạng: từ gốc - từ thay thế`,
+      `# NOVEL GLOSSARY - ADJUSTING WRITING STYLE`,
+      `# Export Date: ${new Date().toISOString().split('T')[0]}`,
+      `# Format: original - replacement`,
       ''
     ];
 
@@ -346,11 +341,11 @@
     document.body.removeChild(downloadAnchor);
     URL.revokeObjectURL(url);
 
-    showFeedback('Đã tải file từ điển về máy thành công!');
+    showFeedback('Dictionary file downloaded.');
   });
 
   // ==========================================
-  // EVENT LISTENERS
+  // EVENT LISTENERS & INITIALIZATION
   // ==========================================
   formAddTerm.addEventListener('submit', (e) => {
     e.preventDefault();
@@ -359,7 +354,6 @@
 
   btnClearAll.addEventListener('click', clearAllTerms);
 
-  // Khởi động
   async function init() {
     detectActiveTab();
     dictionary = await StorageAdapter.get();

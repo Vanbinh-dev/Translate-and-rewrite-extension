@@ -1,111 +1,112 @@
 # Adjusting Writing Style (Translate and Rewrite Extension)
 
-Tiện ích mở rộng (Browser Extension) trên nền tảng Chromium giúp độc giả tự động chuẩn hóa và thay thế các thuật ngữ không đồng nhất trong quá trình đọc truyện chữ, Light Novel và Web Novel trực tuyến.
+A Chromium browser extension designed to help readers standardize terminology inconsistencies and adjust writing styles while reading web novels, light novels, and web fiction.
 
 ---
 
-## 1. Đối tượng sử dụng
+## 1. Target Audience
 
-Tiện ích này được xây dựng dành cho:
-* **Độc giả truyện chữ, Light Novel, Web Novel:** Những người thường xuyên đọc các tác phẩm dài tập trên trình duyệt web.
-* **Người đọc các bản dịch tổng hợp hoặc dịch máy (MTL):** Nơi các chương truyện do nhiều dịch giả khác nhau đảm nhận hoặc do công cụ dịch máy xử lý, dẫn đến việc dùng từ lộn xộn, thiếu nhất quán.
-* **Người đọc muốn cá nhân hóa trải nghiệm:** Muốn đọc tên nhân vật, địa danh, chiêu thức theo đúng cách dịch hoặc phiên âm quen thuộc mà mình yêu thích.
-
----
-
-## 2. Vấn đề: Sự khác biệt giữa các bản dịch
-
-Trong quá trình đọc các bộ tiểu thuyết dài tập, hiện tượng **bất nhất quán thuật ngữ** xảy ra rất phổ biến:
-* **Khác biệt giữa các dịch giả:** Chương 1 đến 50 do nhóm A dịch, dịch cụm từ *"Crimson"* thành *"Xích Hoàn"*. Từ chương 51 trở đi do nhóm B dịch, lại đổi thành *"Xích Thành"*.
-* **Khác biệt giữa phiên âm và Hán Việt:** Cùng một nhân vật hay danh hiệu, lúc thì gọi là *"Ngu Giả"*, lúc lại để là *"Kẻ Khờ"*, lúc lại dùng tên gốc *"The Fool"*.
-* **Gánh nặng cho người đọc:** Khi gặp các thuật ngữ bị thay đổi liên tục, độc giả buộc phải dừng lại để tự "dịch nhẩm" và chắp vá nghĩa trong đầu. Điều này làm gián đoạn mạch cảm xúc và gây cảm giác khó chịu khi thưởng thức tác phẩm.
-
-Tiện ích này ra đời nhằm loại bỏ hoàn toàn sự phiền toái đó bằng cách tự động tìm kiếm và hoán đổi các cụm từ này trực tiếp trên trang web, giúp câu văn hiển thị tự nhiên và liền mạch như thể bản dịch gốc vốn đã được viết như vậy.
+This extension is built for:
+* **Web Novel and Light Novel Readers:** People who read long serialized fiction directly in browser tabs.
+* **Readers of Machine Translations (MTL) and Multi-Translator Projects:** Stories where translation teams change across chapters, or where automated translation scripts produce conflicting terminology.
+* **Readers Seeking Personalized Reading Preferences:** Users who want character names, locations, skills, and titles displayed according to their preferred translation or romanization style.
 
 ---
 
-## 3. Cách tải và cài đặt
+## 2. The Problem: Translation Inconsistencies
 
-### Cài đặt từ mã nguồn (Raw Repository)
-Hiện tại tiện ích đang trong giai đoạn phát triển, bạn có thể cài đặt trực tiếp từ mã nguồn theo các bước sau:
+During serialized novel reading, **terminology inconsistency** is a frequent source of cognitive friction:
+* **Translator Turnover:** Chapters 1–50 by Team A may translate a title as *"Crimson"*, while Chapter 51 onward by Team B switches it to *"Scarlet"*.
+* **Sino-Vietnamese / Pinyin / Literal Discrepancies:** A single entity may alternate between its original name, transliteration, or multiple localized variants across arcs (e.g., *"The Fool"* vs. localized aliases).
+* **Cognitive Load on the Reader:** Every time an inconsistent term appears, the reader must pause and mentally reconcile its meaning. This disrupts the narrative immersion and ruins reading flow.
 
-1. **Tải mã nguồn về máy tính:**
-   * *Cách 1 (Dùng Git):*
+This extension resolves the issue by performing immediate, in-place text replacements directly within the web page. The text renders as though the translation was consistent from the beginning.
+
+---
+
+## 3. Installation & Download
+
+### Installing from Source (Raw Repository)
+While the extension is in active development, you can load it directly from source:
+
+1. **Download the source code:**
+   * *Via Git:*
      ```bash
      git clone https://github.com/Vanbinh-dev/Translate-and-rewrite-extension.git
      ```
-   * *Cách 2 (Tải file ZIP):* Bấm vào nút **Code** trên trang GitHub này $\rightarrow$ chọn **Download ZIP**, sau đó giải nén ra một thư mục trên máy tính.
+   * *Via ZIP:* Click the **Code** button on GitHub, select **Download ZIP**, and extract the contents to a folder on your computer.
 
-2. **Cài đặt vào trình duyệt (Chrome, Edge, Brave, Cốc Cốc):**
-   * Mở trình duyệt và truy cập vào trang quản lý tiện ích:
+2. **Load into Chromium Browsers (Chrome, Edge, Brave, Cốc Cốc):**
+   * Open your browser and navigate to the extensions manager:
      * Google Chrome / Brave / Cốc Cốc: `chrome://extensions/`
      * Microsoft Edge: `edge://extensions/`
-   * Bật công tắc **Chế độ dành cho nhà phát triển (Developer mode)** ở góc trên bên phải màn hình.
-   * Bấm vào nút **Tải tiện ích đã giải nén (Load unpacked)** ở góc trên bên trái.
-   * Chọn thư mục mã nguồn vừa tải về (thư mục chứa file `manifest.json`).
-   * Ghim (Pin) biểu tượng tiện ích lên thanh công cụ của trình duyệt để tiện sử dụng.
+   * Enable **Developer mode** using the toggle switch in the top-right corner.
+   * Click **Load unpacked** in the top-left corner.
+   * Select the extracted project folder (the directory containing `manifest.json`).
+   * Pin the extension icon to your browser toolbar for quick access.
 
-### Cài đặt qua Chrome Web Store
-* Đường dẫn: *(Hiện tại chưa xuất bản — sẽ cập nhật sau)*
-
----
-
-## 4. Các chức năng cung cấp
-
-* **Thay thế triệt để không dấu vết:** Can thiệp trực tiếp vào tầng Text Node của văn bản. Không bọc thẻ lạ, không làm nhảy bố cục dòng, không làm đổi font chữ hay kiểu cách nguyên bản của trang web.
-* **Tự động bảo toàn quy tắc viết hoa / viết thường (`CasePreserver`):**
-  * Viết thường: `xích` $\rightarrow$ `hồng`
-  * Viết hoa chữ đầu: `Xích` $\rightarrow$ `Hồng`
-  * Viết hoa toàn bộ: `XÍCH` $\rightarrow$ `HỒNG`
-  * Áp dụng chuẩn xác cho cả các cụm từ nhiều chữ: `Xích Thành` $\rightarrow$ `Xích Hoàn`.
-* **Tương thích với mọi kiểu trang web:** Tích hợp bộ lắng nghe biến động DOM (`MutationObserver`), hoạt động tốt trên cả các trang web giải mã nội dung động (như `ln.hako.vn`), trang tĩnh (`vidian.vn`), lẫn các trang tải chương vô tận (SPA).
-* **Giao diện quản lý gọn gàng (Popup):**
-  * Form nhập cặp từ gốc và từ thay thế nhanh chóng.
-  * Danh sách các cặp từ đã lưu kèm thanh cuộn mượt mà (slim scrollbar).
-  * Xóa từng từ hoặc xóa toàn bộ danh sách khi cần.
-* **Nhập / Xuất (Import / Export) từ điển:**
-  * Hỗ trợ lưu trữ và chuyển đổi từ điển qua file `.txt` đơn giản.
-  * Dễ dàng sao lưu hoặc chia sẻ danh sách từ vựng cho độc giả khác.
-* **4 nút điều hướng chính:**
-  * `Home`: Quay về đầu danh sách và tập trung vào ô nhập từ.
-  * `Login`: Bật/tắt trạng thái đồng bộ tài khoản.
-  * `Import`: Nạp danh sách từ vựng hàng loạt từ file text `.txt`.
-  * `Export`: Tải danh sách từ vựng hiện có về máy dưới dạng file text `.txt`.
-* **Bảo mật và riêng tư:** Dữ liệu từ điển được lưu trữ cục bộ 100% trong `chrome.storage.local` của trình duyệt, không gửi dữ liệu người đọc ra bất kỳ máy chủ bên ngoài nào.
+### Chrome Web Store
+* Link: *(Pending release — will be updated)*
 
 ---
 
-## 5. Hướng dẫn sử dụng
+## 4. Features Provided
 
-### Thêm từ cần thay thế thủ công
-1. Bấm vào biểu tượng tiện ích trên thanh công cụ trình duyệt.
-2. Tại khung **Nhập cặp từ cần thay thế**:
-   * Ô **Từ gốc**: Nhập từ bạn muốn đổi (ví dụ: `Xích Thành`).
-   * Ô **Từ thay thế**: Nhập từ bạn muốn hiển thị (ví dụ: `Xích Hoàn`).
-3. Tích chọn *"Bảo toàn quy tắc chữ hoa / thường"* nếu muốn tiện ích tự động nhận diện kiểu chữ.
-4. Bấm nút **Thêm vào danh sách** (hoặc nhấn phím `Enter`).
-5. Trang truyện đang mở sẽ tự động cập nhật văn bản ngay lập tức.
+* **In-Place DOM Mutation:** Operates directly on DOM `TextNode` objects. Does not insert wrapper elements, does not break line breaks, and does not alter the website's original typography or layout.
+* **Automatic Case Preservation (`CasePreserver`):**
+  * Lowercase: `crimson` $\rightarrow$ `scarlet`
+  * Title Case: `Crimson` $\rightarrow$ `Scarlet`
+  * Uppercase: `CRIMSON` $\rightarrow$ `SCARLET`
+  * Correctly applies to multi-word phrases and compound terms.
+* **Compatibility with Dynamic Web Renderers:** Uses `MutationObserver` to intercept content rendered after initial page load, including client-side decryption scripts, AJAX calls, and single-page application (SPA) transitions.
+* **Popup Management Interface:**
+  * Quick-entry form for original and replacement term pairs.
+  * Scrollable list of active replacement rules with a slim custom scrollbar.
+  * Individual term removal and a full reset option.
+* **Plain Text Dictionary Import and Export:**
+  * Imports and exports simple `.txt` files using a line-by-line `original - replacement` format.
+  * Facilitates offline backup and sharing glossary presets between readers.
+* **4-Button Navigation Toolbar:**
+  * `Home`: Resets scroll position to top and focuses the input field.
+  * `Login`: Account synchronization state indicator.
+  * `Import`: Bulk loads glossary terms from a `.txt` file.
+  * `Export`: Downloads current terms as a `.txt` file.
+* **Local Storage & Privacy:** All dictionaries are stored locally within `chrome.storage.local`. No reading data or browsing history is sent to external servers.
 
-### Nhập danh sách từ từ file text (Import)
-1. Chuẩn bị file `.txt` với định dạng mỗi dòng một cặp từ:
+---
+
+## 5. Usage Guide
+
+### Adding Terms Manually
+1. Click the extension icon in the browser toolbar.
+2. Under **Add Term Pair**:
+   * **Original Term:** Enter the term you want to replace (e.g., `Crimson`).
+   * **Replacement:** Enter the term you want displayed (e.g., `Scarlet`).
+3. Keep *"Preserve letter casing (Aa)"* checked if you want casing transferred automatically.
+4. Click **Add to Dictionary** (or press `Enter`).
+5. The active story tab updates immediately.
+
+### Importing a Dictionary File
+1. Prepare a `.txt` file with one term pair per line:
    ```text
-   # Ghi chú: Định dạng từ_gốc - từ_thay_thế
-   Xích Thành - Xích Hoàn
-   Ngu Giả - Kẻ Khờ
-   Dorothy - Đóa La Tây
+   # Novel Glossary
+   # Format: original - replacement
+   Crimson - Scarlet
+   The Fool - Fool
+   Dorothy - Dolly
    ```
-2. Bấm nút **Import** trên thanh công cụ popup và chọn file `.txt` vừa tạo.
-3. Toàn bộ từ vựng hợp lệ sẽ được nạp vào tiện ích ngay lập tức.
+2. Click **Import** on the popup toolbar and select your file.
+3. Valid pairs are parsed and applied immediately.
 
-### Xuất file từ điển (Export)
-1. Bấm nút **Export** trên thanh công cụ popup.
-2. Tiện ích sẽ tạo và tải về máy một file text `.txt` chứa toàn bộ danh sách từ đang có.
+### Exporting a Dictionary File
+1. Click **Export** on the popup toolbar.
+2. The extension generates and downloads a `.txt` file containing all currently saved terms.
 
 ---
 
-## 6. Chức năng có thể có trong tương lai
+## 6. Future Roadmap
 
-* **Chuột phải đổi nhanh (Context Menu):** Cho phép bôi đen trực tiếp một từ trên trang truyện $\rightarrow$ Click chuột phải $\rightarrow$ Chọn *"Đổi từ này thành..."* để thêm từ mà không cần mở popup.
-* **Phân nhóm từ điển theo từng bộ truyện (Per-Novel Scope):** Tự động nhận diện URL của bộ truyện đang đọc và chỉ áp dụng bộ từ vựng của riêng truyện đó, tránh ảnh hưởng sang các truyện khác.
-* **Tích hợp mô hình AI cá nhân hóa (Bring Your Own Key):** Cho phép người dùng kết nối khóa API của riêng mình để trau chuốt lại toàn bộ câu văn, sửa lỗi hành văn máy móc và chuyển đổi văn phong mượt mà hơn.
-* **Kho từ điển chia sẻ cộng đồng:** Cho phép độc giả tải về các bộ từ điển đã được cộng đồng chuẩn hóa sẵn cho từng bộ truyện nổi tiếng.
+* **Context Menu Quick-Add:** Highlight any word or phrase on a reading page, right-click, and select *"Replace this term with..."* to add rules without opening the popup.
+* **Per-Novel Scope Matching:** Automatically detect novel endpoint patterns from page URLs to activate only the glossary belonging to the current novel.
+* **Custom AI Model Integration (Bring Your Own Key):** Allow users to connect their own API key to rewrite clunky machine-translated sentences into fluent literary prose.
+* **Community Glossary Presets:** Allow readers to download community-curated term presets for popular serialized titles.

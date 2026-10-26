@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="vi">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -8,7 +8,7 @@
 </head>
 <body>
   <div class="app-container">
-    <!-- Header: App Name & Status Badge -->
+    <!-- Header: Brand & Active Domain Badge -->
     <header class="app-header">
       <div class="header-brand">
         <div class="brand-logo" aria-hidden="true">A</div>
@@ -17,15 +17,15 @@
           <p class="brand-subtitle">Term Replacer</p>
         </div>
       </div>
-      <div id="site-badge" class="site-badge" title="Tự động nhận diện theo trang web hiện tại">
+      <div id="site-badge" class="site-badge" title="Active website">
         <span class="status-dot"></span>
-        <span id="site-hostname" class="site-hostname">Đang nhận diện...</span>
+        <span id="site-hostname" class="site-hostname">Detecting site...</span>
       </div>
     </header>
 
-    <!-- Toolbar: 4 main action buttons -->
-    <nav class="toolbar-nav" aria-label="Thanh công cụ tác vụ">
-      <button type="button" id="btn-home" class="btn-tool" title="Trang chủ / Quản lý chung" aria-label="Trang chủ">
+    <!-- Toolbar: Home, Login, Import, Export -->
+    <nav class="toolbar-nav" aria-label="Toolbar navigation">
+      <button type="button" id="btn-home" class="btn-tool" title="Home / Reset view" aria-label="Home">
         <svg class="tool-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
           <polyline points="9 22 9 12 15 12 15 22"/>
@@ -33,7 +33,7 @@
         <span>Home</span>
       </button>
 
-      <button type="button" id="btn-login" class="btn-tool" title="Đăng nhập tài khoản" aria-label="Đăng nhập">
+      <button type="button" id="btn-login" class="btn-tool" title="Sign in / Sync" aria-label="Login">
         <svg class="tool-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/>
           <circle cx="12" cy="7" r="4"/>
@@ -41,7 +41,7 @@
         <span id="login-label">Login</span>
       </button>
 
-      <button type="button" id="btn-import" class="btn-tool" title="Nạp file từ điển .txt" aria-label="Nạp file">
+      <button type="button" id="btn-import" class="btn-tool" title="Import .txt dictionary" aria-label="Import dictionary">
         <svg class="tool-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
           <polyline points="17 8 12 3 7 8"/>
@@ -51,7 +51,7 @@
       </button>
       <input type="file" id="file-import-input" accept=".txt" style="display: none;" aria-hidden="true">
 
-      <button type="button" id="btn-export" class="btn-tool" title="Xuất file từ điển .txt" aria-label="Xuất file">
+      <button type="button" id="btn-export" class="btn-tool" title="Export .txt dictionary" aria-label="Export dictionary">
         <svg class="tool-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
           <polyline points="7 10 12 15 17 10"/>
@@ -61,18 +61,18 @@
       </button>
     </nav>
 
-    <!-- Feedback Message Banner -->
+    <!-- Feedback Banner -->
     <div id="feedback-banner" class="feedback-banner" style="display: none;" role="alert"></div>
 
-    <!-- Input Form: Add Term Pair -->
+    <!-- Input Card -->
     <section class="card-input" aria-labelledby="input-section-heading">
-      <h2 id="input-section-heading" class="section-title">Nhập cặp từ cần thay thế</h2>
+      <h2 id="input-section-heading" class="section-title">Add Term Pair</h2>
       
       <form id="form-add-term" class="term-form" novalidate>
         <div class="inputs-grid">
           <div class="form-group">
-            <label for="input-original" class="input-label">Từ gốc (trong truyện)</label>
-            <input type="text" id="input-original" class="text-input" placeholder="Ví dụ: Xích Thành" autocomplete="off" required>
+            <label for="input-original" class="input-label">Original Term</label>
+            <input type="text" id="input-original" class="text-input" placeholder="e.g. Crimson" autocomplete="off" required>
           </div>
 
           <div class="arrow-indicator" aria-hidden="true">
@@ -83,15 +83,15 @@
           </div>
 
           <div class="form-group">
-            <label for="input-replacement" class="input-label">Từ thay thế</label>
-            <input type="text" id="input-replacement" class="text-input" placeholder="Ví dụ: Xích Hoàn" autocomplete="off" required>
+            <label for="input-replacement" class="input-label">Replacement</label>
+            <input type="text" id="input-replacement" class="text-input" placeholder="e.g. Scarlet" autocomplete="off" required>
           </div>
         </div>
 
         <div class="form-options">
-          <label class="checkbox-label" title="Tự động chuyển đổi: thường -> thường, Hoa Đầu -> Hoa Đầu, HOA TOÀN BỘ -> HOA TOÀN BỘ">
+          <label class="checkbox-label" title="Automatically handle lower, Title Case, and UPPERCASE">
             <input type="checkbox" id="check-preserve-case" checked>
-            <span>Bảo toàn quy tắc chữ hoa / thường (Aa)</span>
+            <span>Preserve letter casing (Aa)</span>
           </label>
         </div>
 
@@ -100,40 +100,38 @@
             <path d="M12 5v14"/>
             <path d="M5 12h14"/>
           </svg>
-          <span>Thêm vào danh sách</span>
+          <span>Add to Dictionary</span>
         </button>
       </form>
     </section>
 
-    <!-- Scrollable Term List Section -->
+    <!-- Scrollable Term List Card -->
     <section class="card-list" aria-labelledby="list-section-heading">
       <div class="list-header">
         <h2 id="list-section-heading" class="section-title">
-          Danh sách cặp từ (<span id="term-count">0</span>)
+          Saved Terms (<span id="term-count">0</span>)
         </h2>
-        <button type="button" id="btn-clear-all" class="btn-link-danger" title="Xóa tất cả từ trong danh sách">
-          Xóa tất cả
+        <button type="button" id="btn-clear-all" class="btn-link-danger" title="Clear all saved terms">
+          Clear all
         </button>
       </div>
 
-      <!-- Scrollable Container -->
-      <div id="term-list-container" class="term-list-scrollable" tabindex="0" aria-label="Danh sách từ vựng có con lăn cuộn">
-        <!-- Dynamic items will be injected here via popup.js -->
+      <div id="term-list-container" class="term-list-scrollable" tabindex="0" aria-label="Scrollable term list">
         <div id="empty-state" class="empty-state">
           <svg class="empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
             <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z"/>
             <path d="M6 6h10"/>
             <path d="M6 10h7"/>
           </svg>
-          <p class="empty-title">Chưa có cặp từ nào</p>
-          <p class="empty-desc">Nhập cặp từ ở khung phía trên hoặc bấm nút <strong>Import</strong> để nạp từ file .txt</p>
+          <p class="empty-title">No terms saved yet</p>
+          <p class="empty-desc">Add a term pair above or click <strong>Import</strong> to load from a .txt file.</p>
         </div>
       </div>
     </section>
 
-    <!-- Footer helper -->
+    <!-- Footer -->
     <footer class="app-footer">
-      <span class="footer-note">Độc lập • Tự động áp dụng khi đọc truyện</span>
+      <span class="footer-note">Standalone • In-browser in-place replacement</span>
     </footer>
   </div>
 

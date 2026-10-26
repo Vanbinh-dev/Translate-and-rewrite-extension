@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Adjusting Writing Style",
   "version": "1.0.0",
-  "description": "Thay thế và tinh chỉnh thuật ngữ, phong cách viết trực tiếp trên trang web một cách liền mạch.",
+  "description": "Seamlessly replace and adjust story terminology and writing styles in-browser.",
   "permissions": [
     "storage",
     "activeTab"
