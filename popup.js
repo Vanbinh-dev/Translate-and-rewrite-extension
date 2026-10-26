@@ -23,12 +23,17 @@
   const tabScopeNovel = document.getElementById('tab-scope-novel');
   const tabScopeGlobal = document.getElementById('tab-scope-global');
 
+  const searchNavBar = document.getElementById('search-nav-bar');
   const matchCounterBadge = document.getElementById('match-counter-badge');
+  const btnPrevMatch = document.getElementById('btn-prev-match');
+  const btnNextMatch = document.getElementById('btn-next-match');
+
   const formAddTerm = document.getElementById('form-add-term');
   const inputOriginal = document.getElementById('input-original');
   const inputReplacement = document.getElementById('input-replacement');
   const checkPreserveCase = document.getElementById('check-preserve-case');
 
+  const inputFilterTerms = document.getElementById('input-filter-terms');
   const termListContainer = document.getElementById('term-list-container');
   const termCountEl = document.getElementById('term-count');
   const emptyStateEl = document.getElementById('empty-state');
@@ -51,6 +56,7 @@
   let currentHostname = 'Reading page';
   let isLoggedIn = false;
   let searchDebounceTimer = null;
+  let currentFilterQuery = '';
 
   // ==========================================
   // 1. STORAGE ADAPTER
@@ -118,8 +124,59 @@
   }
 
   // ==========================================
-  // 2. URL PATTERN EXTRACTION
+  // 2. URL PATTERN EXTRACTION & NORMALIZATION
   // ==========================================
+  function normalizeUrl(url) {
+    if (!url) return '';
+    return url
+      .replace(/^https?:\/\//i, '')
+      .replace(/^www\./i, '')
+      .replace(/\/+$/, '')
+      .toLowerCase();
+  }
+
+  function matchUrlPattern(urlStr, pattern) {
+    if (!urlStr || !pattern) return false;
+    try {
+      const normUrl = normalizeUrl(urlStr);
+      const normPattern = normalizeUrl(pattern);
+
+      if (normPattern === '*' || normPattern === 'all') return true;
+
+      if (normPattern.startsWith('*.')) {
+        const rest = normPattern.slice(2);
+        const slashIdx = rest.indexOf('/');
+        const domainSuffix = slashIdx === -1 ? rest : rest.slice(0, slashIdx);
+        const pathSuffix = slashIdx === -1 ? '' : rest.slice(slashIdx);
+
+        const urlSlashIdx = normUrl.indexOf('/');
+        const urlHost = urlSlashIdx === -1 ? normUrl : normUrl.slice(0, urlSlashIdx);
+        const urlPath = urlSlashIdx === -1 ? '' : normUrl.slice(urlSlashIdx);
+
+        const hostMatches = urlHost === domainSuffix || urlHost.endsWith('.' + domainSuffix);
+        if (!hostMatches) return false;
+        if (!pathSuffix || pathSuffix === '/*') return true;
+        if (pathSuffix.endsWith('/*')) {
+          const prefix = pathSuffix.slice(0, -2);
+          return urlPath === prefix || urlPath.startsWith(prefix + '/');
+        }
+        return urlPath === pathSuffix;
+      }
+
+      if (normPattern.endsWith('/*')) {
+        const prefix = normPattern.slice(0, -2);
+        return normUrl === prefix || normUrl.startsWith(prefix + '/');
+      }
+      if (normPattern.endsWith('*')) {
+        const prefix = normPattern.slice(0, -1);
+        return normUrl.startsWith(prefix);
+      }
+      return normUrl === normPattern;
+    } catch (e) {
+      return false;
+    }
+  }
+
   function extractPatternFromUrl(urlStr) {
     if (!urlStr) return 'reading-site/*';
     try {
@@ -167,7 +224,7 @@
     if (searchDebounceTimer) clearTimeout(searchDebounceTimer);
 
     if (!text || !text.trim()) {
-      matchCounterBadge.style.display = 'none';
+      searchNavBar.style.display = 'none';
       sendTabMessage({ action: 'CLEAR_HIGHLIGHTS' });
       return;
     }
@@ -175,21 +232,32 @@
     searchDebounceTimer = setTimeout(() => {
       sendTabMessage({ action: 'SEARCH_TERM', query: text.trim() }, (response) => {
         if (!response || typeof response.count === 'undefined') {
-          matchCounterBadge.style.display = 'none';
+          searchNavBar.style.display = 'none';
           return;
         }
 
+        searchNavBar.style.display = 'flex';
         const count = response.count || 0;
-        matchCounterBadge.style.display = 'inline-block';
+        const current = response.currentIndex || (count > 0 ? 1 : 0);
+
         if (count > 0) {
           matchCounterBadge.className = 'match-badge found';
-          matchCounterBadge.textContent = `${count} ${count === 1 ? 'match' : 'matches'}`;
+          matchCounterBadge.textContent = `${current} / ${count} ${count === 1 ? 'match' : 'matches'}`;
         } else {
           matchCounterBadge.className = 'match-badge not-found';
           matchCounterBadge.textContent = '0 matches';
         }
       });
-    }, 100);
+    }, 120);
+  }
+
+  function navigateMatch(direction) {
+    sendTabMessage({ action: 'NAVIGATE_SEARCH_MATCH', direction: direction }, (res) => {
+      if (res && res.count > 0) {
+        matchCounterBadge.className = 'match-badge found';
+        matchCounterBadge.textContent = `${res.currentIndex} / ${res.count} ${res.count === 1 ? 'match' : 'matches'}`;
+      }
+    });
   }
 
   // ==========================================
@@ -266,7 +334,7 @@
         showFeedback(`Reverted to pristine: "${finalFrom}" restored.`);
         inputOriginal.value = '';
         inputReplacement.value = '';
-        matchCounterBadge.style.display = 'none';
+        searchNavBar.style.display = 'none';
         return;
       }
     }
@@ -295,7 +363,7 @@
 
     inputOriginal.value = '';
     inputReplacement.value = '';
-    matchCounterBadge.style.display = 'none';
+    searchNavBar.style.display = 'none';
     sendTabMessage({ action: 'CLEAR_HIGHLIGHTS' });
     inputOriginal.focus();
   }
@@ -325,21 +393,37 @@
   // ==========================================
   function renderList() {
     const list = getCurrentActiveList();
-    termCountEl.textContent = list.length;
+    const query = currentFilterQuery.trim().toLowerCase();
+    const filteredList = query
+      ? list.filter(item => item.from.toLowerCase().includes(query) || item.to.toLowerCase().includes(query))
+      : list;
+
+    termCountEl.textContent = query ? `${filteredList.length}/${list.length}` : list.length;
 
     const rows = termListContainer.querySelectorAll('.term-row');
     rows.forEach(r => r.remove());
 
     if (list.length === 0) {
       emptyStateEl.style.display = 'flex';
+      emptyStateEl.querySelector('.empty-title').textContent = 'No terms saved yet';
+      emptyStateEl.querySelector('.empty-desc').textContent = 'Add a term pair above or click Import to load from a .txt file.';
       btnClearAll.style.display = 'none';
+      return;
+    }
+
+    if (filteredList.length === 0) {
+      emptyStateEl.style.display = 'flex';
+      emptyStateEl.querySelector('.empty-title').textContent = 'No matching terms';
+      emptyStateEl.querySelector('.empty-desc').textContent = `No terms in this list match "${currentFilterQuery}".`;
+      btnClearAll.style.display = 'inline-block';
       return;
     }
 
     emptyStateEl.style.display = 'none';
     btnClearAll.style.display = 'inline-block';
 
-    list.forEach((item, index) => {
+    filteredList.forEach((item) => {
+      const realIndex = list.indexOf(item);
       const row = document.createElement('div');
       row.className = 'term-row';
 
@@ -376,7 +460,7 @@
       `;
 
       btnRemove.addEventListener('click', () => {
-        removeTerm(index);
+        removeTerm(realIndex);
       });
 
       row.appendChild(pairContent);
@@ -454,50 +538,64 @@
   });
 
   // ==========================================
-  // 9. TAB MESSAGING WITH AUTO-INJECTION
+  // 9. TAB QUERY & MESSAGING WITH AUTO-INJECTION
   // ==========================================
-  function sendTabMessage(payload, callback) {
+  function getActiveTab(callback) {
     if (typeof chrome !== 'undefined' && chrome.tabs && chrome.tabs.query) {
-      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-        if (!tabs || !tabs[0] || !tabs[0].id) {
+      chrome.tabs.query({ active: true, lastFocusedWindow: true }, (tabs) => {
+        const tab = tabs && tabs.find(t => t.url && !t.url.startsWith('chrome') && !t.url.startsWith('about:'));
+        if (tab) {
+          callback(tab);
+          return;
+        }
+        chrome.tabs.query({ active: true, currentWindow: true }, (tabs2) => {
+          const tab2 = tabs2 && tabs2.find(t => t.url && !t.url.startsWith('chrome') && !t.url.startsWith('about:'));
+          callback(tab2 || (tabs2 && tabs2[0]) || null);
+        });
+      });
+    } else {
+      callback(null);
+    }
+  }
+
+  function sendTabMessage(payload, callback) {
+    getActiveTab((tab) => {
+      if (!tab || !tab.id) {
+        if (callback) callback(null);
+        return;
+      }
+
+      const tabId = tab.id;
+      chrome.tabs.sendMessage(tabId, payload, (res) => {
+        if (chrome.runtime.lastError) {
+          // Auto-inject content script into pre-existing tabs
+          if (typeof chrome.scripting !== 'undefined') {
+            chrome.scripting.executeScript({
+              target: { tabId: tabId },
+              files: ['content.js']
+            }, () => {
+              if (chrome.runtime.lastError) {
+                if (callback) callback(null);
+                return;
+              }
+              setTimeout(() => {
+                chrome.tabs.sendMessage(tabId, payload, (retryRes) => {
+                  if (chrome.runtime.lastError) {
+                    if (callback) callback(null);
+                  } else if (callback) {
+                    callback(retryRes);
+                  }
+                });
+              }, 80);
+            });
+            return;
+          }
           if (callback) callback(null);
           return;
         }
-
-        const tabId = tabs[0].id;
-        chrome.tabs.sendMessage(tabId, payload, (res) => {
-          if (chrome.runtime.lastError) {
-            // Auto-inject content script into pre-existing tabs
-            if (typeof chrome.scripting !== 'undefined') {
-              chrome.scripting.executeScript({
-                target: { tabId: tabId },
-                files: ['content.js']
-              }, () => {
-                if (chrome.runtime.lastError) {
-                  if (callback) callback(null);
-                  return;
-                }
-                setTimeout(() => {
-                  chrome.tabs.sendMessage(tabId, payload, (retryRes) => {
-                    if (chrome.runtime.lastError) {
-                      if (callback) callback(null);
-                    } else if (callback) {
-                      callback(retryRes);
-                    }
-                  });
-                }, 80);
-              });
-              return;
-            }
-            if (callback) callback(null);
-            return;
-          }
-          if (callback) callback(res);
-        });
+        if (callback) callback(res);
       });
-    } else if (callback) {
-      callback(null);
-    }
+    });
   }
 
   function notifyContentScript() {
@@ -629,6 +727,31 @@
     triggerLiveSearch(e.target.value);
   });
 
+  inputOriginal.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      if (searchNavBar.style.display !== 'none') {
+        e.preventDefault();
+        navigateMatch('next');
+      }
+    } else if (e.key === 'Enter' && e.shiftKey) {
+      if (searchNavBar.style.display !== 'none') {
+        e.preventDefault();
+        navigateMatch('prev');
+      }
+    } else if (e.key === 'Escape') {
+      searchNavBar.style.display = 'none';
+      sendTabMessage({ action: 'CLEAR_HIGHLIGHTS' });
+    }
+  });
+
+  btnPrevMatch.addEventListener('click', () => navigateMatch('prev'));
+  btnNextMatch.addEventListener('click', () => navigateMatch('next'));
+
+  inputFilterTerms.addEventListener('input', (e) => {
+    currentFilterQuery = e.target.value;
+    renderList();
+  });
+
   formAddTerm.addEventListener('submit', (e) => {
     e.preventDefault();
     addTerm(inputOriginal.value, inputReplacement.value, checkPreserveCase.checked);
@@ -645,26 +768,57 @@
     globalDictionary = data.global;
     scopeDictionaries = data.scopes;
 
-    // Detect active tab and pattern DIRECTLY from tab.url synchronously
-    if (typeof chrome !== 'undefined' && chrome.tabs && chrome.tabs.query) {
-      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-        if (tabs && tabs[0] && tabs[0].url) {
-          activeTabUrl = tabs[0].url;
-          try {
-            currentHostname = new URL(activeTabUrl).hostname;
-          } catch (e) {
-            currentHostname = 'Reading page';
-          }
-          activeScopePattern = extractPatternFromUrl(activeTabUrl);
+    // Migrate old scope keys with http:// or https:// to clean normalized keys
+    let migrated = false;
+    for (const [key, val] of Object.entries(scopeDictionaries)) {
+      if (/^https?:\/\//i.test(key)) {
+        const cleanKey = key.replace(/^https?:\/\//i, '');
+        if (!scopeDictionaries[cleanKey]) {
+          scopeDictionaries[cleanKey] = val;
         } else {
-          activeScopePattern = 'reading-site/*';
+          // Merge terms
+          const existingList = scopeDictionaries[cleanKey];
+          val.forEach(item => {
+            if (!existingList.some(e => e.from.toLowerCase() === item.from.toLowerCase())) {
+              existingList.push(item);
+            }
+          });
         }
-        updateScopeUI();
-      });
-    } else {
-      activeScopePattern = `${window.location.hostname || 'reading-site'}/*`;
-      updateScopeUI();
+        delete scopeDictionaries[key];
+        migrated = true;
+      }
     }
+    if (migrated) {
+      await StorageAdapter.saveScopes(scopeDictionaries);
+    }
+
+    getActiveTab((tab) => {
+      if (tab && tab.url) {
+        activeTabUrl = tab.url;
+        try {
+          currentHostname = new URL(activeTabUrl).hostname;
+        } catch (e) {
+          currentHostname = 'Reading page';
+        }
+
+        // Check if an existing scope pattern matches the current URL
+        const matchedScope = Object.keys(scopeDictionaries)
+          .filter(p => matchUrlPattern(activeTabUrl, p))
+          .sort((a, b) => b.length - a.length)[0];
+
+        if (matchedScope) {
+          activeScopePattern = matchedScope;
+        } else {
+          activeScopePattern = extractPatternFromUrl(activeTabUrl);
+        }
+      } else {
+        activeScopePattern = 'reading-site/*';
+      }
+
+      updateScopeUI();
+      // Ensure the content script receives and applies the dictionary immediately
+      notifyContentScript();
+    });
   }
 
   init();

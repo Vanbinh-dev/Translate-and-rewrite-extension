@@ -76,6 +76,9 @@
   // ==========================================
   // 3. LIVE SEARCH & IN-PAGE HIGHLIGHT
   // ==========================================
+  let activeMarks = [];
+  let currentMarkIndex = -1;
+
   function clearSearchHighlights() {
     const marks = document.querySelectorAll('.novel-match-highlight');
     marks.forEach(mark => {
@@ -88,77 +91,112 @@
         parent.normalize();
       }
     });
+    activeMarks = [];
+    currentMarkIndex = -1;
+  }
+
+  function updateActiveMarkFocus(index) {
+    if (activeMarks.length === 0) return;
+    activeMarks.forEach((m, idx) => {
+      if (idx === index) {
+        m.classList.add('novel-match-focused');
+        m.style.setProperty('outline', '2px solid #EA580C', 'important');
+        m.style.setProperty('background-color', '#FDE047', 'important');
+        m.style.setProperty('box-shadow', '0 0 8px rgba(234, 88, 12, 0.9)', 'important');
+      } else {
+        m.classList.remove('novel-match-focused');
+        m.style.setProperty('outline', '2px solid #FACC15', 'important');
+        m.style.setProperty('background-color', '#FEF08A', 'important');
+        m.style.setProperty('box-shadow', '0 0 4px rgba(250, 204, 21, 0.6)', 'important');
+      }
+    });
+    const target = activeMarks[index];
+    if (target) {
+      target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
   }
 
   function searchAndHighlight(query) {
     clearSearchHighlights();
-    if (!query || !query.trim()) return { count: 0 };
+    if (!query || !query.trim()) return { count: 0, currentIndex: 0 };
 
-    const trimmed = query.trim();
-    const escaped = escapeRegExp(trimmed);
-    const regex = new RegExp(escaped, 'gi');
+    isProcessing = true;
+    try {
+      const trimmed = query.trim();
+      const escaped = escapeRegExp(trimmed);
+      const regex = new RegExp(escaped, 'gi');
 
-    const root = document.querySelector('#chapter-content') || document.body;
-    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
-      acceptNode: (node) => {
-        if (shouldFilterTag(node)) return NodeFilter.FILTER_REJECT;
-        if (node.parentElement?.classList?.contains('novel-match-highlight')) {
-          return NodeFilter.FILTER_REJECT;
+      const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {
+        acceptNode: (node) => {
+          if (shouldFilterTag(node)) return NodeFilter.FILTER_REJECT;
+          if (node.parentElement?.classList?.contains('novel-match-highlight')) {
+            return NodeFilter.FILTER_REJECT;
+          }
+          return NodeFilter.FILTER_ACCEPT;
         }
-        return NodeFilter.FILTER_ACCEPT;
+      });
+
+      const matchingNodes = [];
+      let node;
+      while ((node = walker.nextNode())) {
+        if (regex.test(node.nodeValue)) {
+          matchingNodes.push(node);
+        }
+        regex.lastIndex = 0;
       }
-    });
 
-    const matchingNodes = [];
-    let node;
-    while ((node = walker.nextNode())) {
-      if (regex.test(node.nodeValue)) {
-        matchingNodes.push(node);
-      }
-      regex.lastIndex = 0;
-    }
+      for (const textNode of matchingNodes) {
+        regex.lastIndex = 0;
+        const text = textNode.nodeValue;
+        const parent = textNode.parentNode;
+        if (!parent) continue;
 
-    let totalMatches = 0;
-    let firstMark = null;
+        const fragment = document.createDocumentFragment();
+        let lastIdx = 0;
+        let match;
 
-    for (const textNode of matchingNodes) {
-      regex.lastIndex = 0;
-      const text = textNode.nodeValue;
-      const parent = textNode.parentNode;
-      if (!parent) continue;
+        while ((match = regex.exec(text)) !== null) {
+          if (match.index > lastIdx) {
+            fragment.appendChild(document.createTextNode(text.substring(lastIdx, match.index)));
+          }
 
-      const fragment = document.createDocumentFragment();
-      let lastIdx = 0;
-      let match;
+          const mark = document.createElement('mark');
+          mark.className = 'novel-match-highlight';
+          mark.style.cssText = 'background-color: #FEF08A !important; color: #854D0E !important; outline: 2px solid #FACC15 !important; border-radius: 2px !important; padding: 1px 3px !important; box-shadow: 0 0 4px rgba(250, 204, 21, 0.6) !important; font-weight: bold !important; display: inline !important; cursor: pointer; transition: all 120ms ease;';
+          mark.textContent = match[0];
+          fragment.appendChild(mark);
 
-      while ((match = regex.exec(text)) !== null) {
-        totalMatches++;
-        if (match.index > lastIdx) {
-          fragment.appendChild(document.createTextNode(text.substring(lastIdx, match.index)));
+          activeMarks.push(mark);
+          lastIdx = regex.lastIndex;
         }
 
-        const mark = document.createElement('mark');
-        mark.className = 'novel-match-highlight';
-        mark.style.cssText = 'background-color: #FEF08A !important; color: #854D0E !important; outline: 2px solid #FACC15 !important; border-radius: 2px !important; padding: 1px 3px !important; box-shadow: 0 0 6px rgba(250, 204, 21, 0.8) !important; font-weight: bold !important; display: inline !important;';
-        mark.textContent = match[0];
-        fragment.appendChild(mark);
+        if (lastIdx < text.length) {
+          fragment.appendChild(document.createTextNode(text.substring(lastIdx)));
+        }
 
-        if (!firstMark) firstMark = mark;
-        lastIdx = regex.lastIndex;
+        parent.replaceChild(fragment, textNode);
       }
 
-      if (lastIdx < text.length) {
-        fragment.appendChild(document.createTextNode(text.substring(lastIdx)));
+      if (activeMarks.length > 0) {
+        currentMarkIndex = 0;
+        updateActiveMarkFocus(0);
       }
 
-      parent.replaceChild(fragment, textNode);
+      return { count: activeMarks.length, currentIndex: activeMarks.length > 0 ? 1 : 0 };
+    } finally {
+      isProcessing = false;
     }
+  }
 
-    if (firstMark) {
-      firstMark.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  function navigateSearchMatch(direction) {
+    if (activeMarks.length === 0) return { count: 0, currentIndex: 0 };
+    if (direction === 'next') {
+      currentMarkIndex = (currentMarkIndex + 1) % activeMarks.length;
+    } else {
+      currentMarkIndex = (currentMarkIndex - 1 + activeMarks.length) % activeMarks.length;
     }
-
-    return { count: totalMatches };
+    updateActiveMarkFocus(currentMarkIndex);
+    return { count: activeMarks.length, currentIndex: currentMarkIndex + 1 };
   }
 
   // ==========================================
@@ -198,7 +236,6 @@
   function scanAndReplace(root = document.body) {
     if (!root || activeDictionary.length === 0) return;
 
-    clearSearchHighlights();
     const sortedDict = [...activeDictionary].sort((a, b) => b.from.length - a.from.length);
 
     isProcessing = true;
@@ -259,18 +296,70 @@
   // ==========================================
   // 6. SCOPE RESOLUTION & STORAGE
   // ==========================================
+  function normalizeUrl(url) {
+    if (!url) return '';
+    return url
+      .replace(/^https?:\/\//i, '')
+      .replace(/^www\./i, '')
+      .replace(/\/+$/, '')
+      .toLowerCase();
+  }
+
+  function matchUrlPattern(urlStr, pattern) {
+    if (!urlStr || !pattern) return false;
+    try {
+      const normUrl = normalizeUrl(urlStr);
+      const normPattern = normalizeUrl(pattern);
+
+      if (normPattern === '*' || normPattern === 'all') return true;
+
+      if (normPattern.startsWith('*.')) {
+        const rest = normPattern.slice(2);
+        const slashIdx = rest.indexOf('/');
+        const domainSuffix = slashIdx === -1 ? rest : rest.slice(0, slashIdx);
+        const pathSuffix = slashIdx === -1 ? '' : rest.slice(slashIdx);
+
+        const urlSlashIdx = normUrl.indexOf('/');
+        const urlHost = urlSlashIdx === -1 ? normUrl : normUrl.slice(0, urlSlashIdx);
+        const urlPath = urlSlashIdx === -1 ? '' : normUrl.slice(urlSlashIdx);
+
+        const hostMatches = urlHost === domainSuffix || urlHost.endsWith('.' + domainSuffix);
+        if (!hostMatches) return false;
+        if (!pathSuffix || pathSuffix === '/*') return true;
+        if (pathSuffix.endsWith('/*')) {
+          const prefix = pathSuffix.slice(0, -2);
+          return urlPath === prefix || urlPath.startsWith(prefix + '/');
+        }
+        return urlPath === pathSuffix;
+      }
+
+      if (normPattern.endsWith('/*')) {
+        const prefix = normPattern.slice(0, -2);
+        return normUrl === prefix || normUrl.startsWith(prefix + '/');
+      }
+      if (normPattern.endsWith('*')) {
+        const prefix = normPattern.slice(0, -1);
+        return normUrl.startsWith(prefix);
+      }
+      return normUrl === normPattern;
+    } catch (e) {
+      return false;
+    }
+  }
+
   function extractNovelEndpoint(urlStr = window.location.href) {
     try {
       const url = new URL(urlStr);
+      const host = url.hostname;
       const segments = url.pathname.split('/').filter(Boolean);
       if (segments.length > 0) {
         segments.pop(); // Remove chapter slug
       }
-      const basePath = '/' + segments.join('/');
+      const pattern = segments.length > 0 ? `${host}/${segments.join('/')}/*` : `${host}/*`;
       return {
-        hostname: url.hostname,
-        pattern: `${url.origin}${basePath}/*`,
-        endpoint: `${url.origin}${basePath}`
+        hostname: host,
+        pattern: pattern,
+        endpoint: segments.length > 0 ? `${host}/${segments.join('/')}` : host
       };
     } catch (e) {
       return null;
@@ -283,14 +372,15 @@
         const globalDict = res[STORAGE_KEY] || [];
         const scopes = res['adjusting_writing_style_scopes'] || {};
         
-        // Find matching scoped dictionary
+        // Find matching scoped dictionary sorted by specificity
         const currentUrl = window.location.href;
         let scopedDict = [];
-        for (const [pattern, dict] of Object.entries(scopes)) {
-          if (matchUrlPattern(currentUrl, pattern)) {
-            scopedDict = dict;
-            break;
-          }
+        const matched = Object.entries(scopes)
+          .filter(([pattern]) => matchUrlPattern(currentUrl, pattern))
+          .sort(([a], [b]) => b.length - a.length);
+
+        if (matched.length > 0) {
+          scopedDict = matched[0][1] || [];
         }
 
         // Merge global and scoped dictionaries (scoped takes precedence)
@@ -299,19 +389,6 @@
           scanAndReplace(document.body);
         }
       });
-    }
-  }
-
-  function matchUrlPattern(urlStr, pattern) {
-    if (!pattern) return false;
-    try {
-      if (pattern.endsWith('*')) {
-        const prefix = pattern.slice(0, -1);
-        return urlStr.startsWith(prefix);
-      }
-      return urlStr === pattern;
-    } catch (e) {
-      return false;
     }
   }
 
@@ -327,6 +404,9 @@
       } else if (message.action === 'SEARCH_TERM') {
         const result = searchAndHighlight(message.query);
         sendResponse(result);
+      } else if (message.action === 'NAVIGATE_SEARCH_MATCH') {
+        const navResult = navigateSearchMatch(message.direction);
+        sendResponse(navResult);
       } else if (message.action === 'CLEAR_HIGHLIGHTS') {
         clearSearchHighlights();
         sendResponse({ status: 'OK' });

@@ -113,14 +113,31 @@
     <section class="card-input" aria-labelledby="input-section-heading">
       <div class="input-header-row">
         <h2 id="input-section-heading" class="section-title">Add Term Pair</h2>
-        <!-- Live Match Badge -->
-        <span id="match-counter-badge" class="match-badge" style="display: none;">0 matches</span>
+        <!-- Live Match Navigation & Badge -->
+        <div id="search-nav-bar" class="search-nav-bar" style="display: none;">
+          <span id="match-counter-badge" class="match-badge not-found">0 matches</span>
+          <div class="match-nav-actions">
+            <button type="button" id="btn-prev-match" class="btn-match-nav" title="Previous match in page (Shift+Enter)">
+              <svg class="hollow-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="18 15 12 9 6 15"/>
+              </svg>
+            </button>
+            <button type="button" id="btn-next-match" class="btn-match-nav" title="Next match in page (Enter)">
+              <svg class="hollow-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="6 9 12 15 18 9"/>
+              </svg>
+            </button>
+          </div>
+        </div>
       </div>
       
       <form id="form-add-term" class="term-form" novalidate>
         <div class="inputs-grid">
           <div class="form-group">
-            <label for="input-original" class="input-label">Original Term</label>
+            <div class="label-row-search">
+              <label for="input-original" class="input-label">Original Term</label>
+              <span class="search-live-tag">Page Search</span>
+            </div>
             <input type="text" id="input-original" class="text-input" placeholder="e.g. Crimson" autocomplete="off" required>
           </div>
 
@@ -163,6 +180,17 @@
         <button type="button" id="btn-clear-all" class="btn-link-danger" title="Clear all saved terms">
           Clear all
         </button>
+      </div>
+
+      <!-- Quick Filter for Saved Terms -->
+      <div class="list-filter-row">
+        <div class="filter-input-wrap">
+          <svg class="hollow-icon-xs filter-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="11" cy="11" r="8"/>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+          </svg>
+          <input type="text" id="input-filter-terms" class="filter-input" placeholder="Filter saved dictionary..." autocomplete="off">
+        </div>
       </div>
 
       <div id="term-list-container" class="term-list-scrollable" tabindex="0" aria-label="Scrollable term list">
