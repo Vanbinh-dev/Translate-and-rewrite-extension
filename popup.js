@@ -12,7 +12,42 @@
   const STORAGE_KEY_GLOBAL = 'adjusting_writing_style_dictionary';
   const STORAGE_KEY_SCOPES = 'adjusting_writing_style_scopes';
 
-  // DOM Elements
+  // DOM Elements - Views & Navigation
+  const appViewLabel = document.getElementById('app-view-label');
+  const viewDictionary = document.getElementById('view-dictionary');
+  const viewAIAssistant = document.getElementById('view-ai-assistant');
+
+  const btnNavHome = document.getElementById('btn-nav-home');
+  const btnNavAi = document.getElementById('btn-nav-ai');
+  const btnNavApi = document.getElementById('btn-nav-api');
+  const btnNavLogin = document.getElementById('btn-nav-login');
+  const loginLabel = document.getElementById('login-label');
+
+  // DOM Elements - API Token Modal
+  const apiModalPanel = document.getElementById('api-modal-panel');
+  const btnCloseApiModal = document.getElementById('btn-close-api-modal');
+  const apiStatusBadge = document.getElementById('api-status-badge');
+  const selectAiProvider = document.getElementById('select-ai-provider');
+  const customEndpointGroup = document.getElementById('custom-endpoint-group');
+  const inputCustomEndpoint = document.getElementById('input-custom-endpoint');
+  const inputApiToken = document.getElementById('input-api-token');
+  const btnToggleTokenVisibility = document.getElementById('btn-toggle-token-visibility');
+  const btnSaveApiToken = document.getElementById('btn-save-api-token');
+  const btnRemoveApiToken = document.getElementById('btn-remove-api-token');
+
+  // DOM Elements - AI Assistant View
+  const checkAiChapterContext = document.getElementById('check-ai-chapter-context');
+  const inputAiPrompt = document.getElementById('input-ai-prompt');
+  const btnAiSubmit = document.getElementById('btn-ai-submit');
+  const aiTokenWarning = document.getElementById('ai-token-warning');
+  const aiLoader = document.getElementById('ai-loader');
+  const btnCopyAiOutput = document.getElementById('btn-copy-ai-output');
+  const btnClearAiOutput = document.getElementById('btn-clear-ai-output');
+  const aiPlaceholder = document.getElementById('ai-placeholder');
+  const aiResponseText = document.getElementById('ai-response-text');
+  const aiChips = document.querySelectorAll('.btn-chip');
+
+  // DOM Elements - Scope & Dictionary View
   const scopeDisplayText = document.getElementById('scope-display-text');
   const btnToggleScopeEdit = document.getElementById('btn-toggle-scope-edit');
   const scopeEditPanel = document.getElementById('scope-edit-panel');
@@ -40,9 +75,6 @@
   const btnClearAll = document.getElementById('btn-clear-all');
   const feedbackBanner = document.getElementById('feedback-banner');
 
-  const btnHome = document.getElementById('btn-home');
-  const btnLogin = document.getElementById('btn-login');
-  const loginLabel = document.getElementById('login-label');
   const btnImport = document.getElementById('btn-import');
   const fileImportInput = document.getElementById('file-import-input');
   const btnExport = document.getElementById('btn-export');
@@ -606,31 +638,201 @@
   }
 
   // ==========================================
-  // 10. TOOLBAR BUTTONS
+  // 10. NAVBAR, VIEW SWITCHING & API TOKEN MANAGEMENT
   // ==========================================
-  btnHome.addEventListener('click', () => {
-    termListContainer.scrollTop = 0;
-    inputOriginal.focus();
-    showFeedback('Scrolled to top.');
+  function switchView(viewName) {
+    if (viewName === 'AI') {
+      viewDictionary.style.display = 'none';
+      viewAIAssistant.style.display = 'flex';
+      btnNavHome.classList.remove('active');
+      btnNavAi.classList.add('active');
+      appViewLabel.textContent = 'AI Studio';
+      checkAiTokenStatus();
+    } else {
+      viewAIAssistant.style.display = 'none';
+      viewDictionary.style.display = 'flex';
+      btnNavAi.classList.remove('active');
+      btnNavHome.classList.add('active');
+      appViewLabel.textContent = 'Term Replacer';
+    }
+  }
+
+  btnNavHome.addEventListener('click', () => {
+    switchView('DICTIONARY');
   });
 
-  btnLogin.addEventListener('click', () => {
+  btnNavAi.addEventListener('click', () => {
+    switchView('AI');
+  });
+
+  async function checkAiTokenStatus() {
+    if (typeof AIAssistant === 'undefined') return;
+    const token = await AIAssistant.getToken();
+    if (token) {
+      apiStatusBadge.textContent = 'Configured';
+      apiStatusBadge.className = 'badge-status configured';
+      if (aiTokenWarning) aiTokenWarning.style.display = 'none';
+    } else {
+      apiStatusBadge.textContent = 'No Token';
+      apiStatusBadge.className = 'badge-status unconfigured';
+      if (aiTokenWarning) aiTokenWarning.style.display = 'inline';
+    }
+  }
+
+  async function openApiModal() {
+    if (typeof AIAssistant === 'undefined') return;
+    const token = await AIAssistant.getToken();
+    const config = await AIAssistant.getConfig();
+
+    inputApiToken.value = token;
+    const providerKey = `${config.provider}:${config.model}`;
+    if (selectAiProvider.querySelector(`option[value="${providerKey}"]`)) {
+      selectAiProvider.value = providerKey;
+    }
+    inputCustomEndpoint.value = config.customEndpoint || '';
+    customEndpointGroup.style.display = config.provider === 'openai' && config.model === 'custom' ? 'flex' : 'none';
+
+    await checkAiTokenStatus();
+    apiModalPanel.style.display = 'block';
+  }
+
+  function closeApiModal() {
+    apiModalPanel.style.display = 'none';
+  }
+
+  btnNavApi.addEventListener('click', () => {
+    const isVisible = apiModalPanel.style.display === 'block';
+    if (isVisible) {
+      closeApiModal();
+    } else {
+      openApiModal();
+    }
+  });
+
+  btnCloseApiModal.addEventListener('click', closeApiModal);
+
+  selectAiProvider.addEventListener('change', (e) => {
+    const val = e.target.value;
+    customEndpointGroup.style.display = val === 'openai:custom' ? 'flex' : 'none';
+  });
+
+  btnToggleTokenVisibility.addEventListener('click', () => {
+    const isPassword = inputApiToken.type === 'password';
+    inputApiToken.type = isPassword ? 'text' : 'password';
+    btnToggleTokenVisibility.textContent = isPassword ? 'Hide' : 'Show';
+  });
+
+  btnSaveApiToken.addEventListener('click', async () => {
+    if (typeof AIAssistant === 'undefined') return;
+    const token = inputApiToken.value.trim();
+    if (!token) {
+      showFeedback('Please enter an API token.', 'error');
+      return;
+    }
+
+    const [provider, model] = selectAiProvider.value.split(':');
+    const customEndpoint = inputCustomEndpoint.value.trim();
+
+    await AIAssistant.saveToken(token);
+    await AIAssistant.saveConfig({ provider, model, customEndpoint });
+    await checkAiTokenStatus();
+    showFeedback('API Token & configuration saved.');
+    closeApiModal();
+  });
+
+  btnRemoveApiToken.addEventListener('click', async () => {
+    if (typeof AIAssistant === 'undefined') return;
+    if (confirm('Are you sure you want to remove the API token?')) {
+      await AIAssistant.removeToken();
+      inputApiToken.value = '';
+      await checkAiTokenStatus();
+      showFeedback('API token removed.');
+    }
+  });
+
+  btnNavLogin.addEventListener('click', () => {
     if (!isLoggedIn) {
       const username = prompt('Enter your username or email for cloud sync:');
       if (username && username.trim()) {
         isLoggedIn = true;
         loginLabel.textContent = username.trim().split('@')[0];
-        btnLogin.title = `Logged in: ${username.trim()}`;
+        btnNavLogin.title = `Logged in: ${username.trim()}`;
         showFeedback(`Welcome, ${username.trim()}! Cloud sync enabled.`);
       }
     } else {
       if (confirm('Do you want to sign out of this account?')) {
         isLoggedIn = false;
         loginLabel.textContent = 'Login';
-        btnLogin.title = 'Sign in';
+        btnNavLogin.title = 'Sign in';
         showFeedback('Signed out.');
       }
     }
+  });
+
+  // ==========================================
+  // AI ASSISTANT PANEL EVENTS
+  // ==========================================
+  aiChips.forEach((chip) => {
+    chip.addEventListener('click', () => {
+      const template = chip.getAttribute('data-prompt');
+      if (template) {
+        inputAiPrompt.value = template;
+        inputAiPrompt.focus();
+      }
+    });
+  });
+
+  btnAiSubmit.addEventListener('click', async () => {
+    if (typeof AIAssistant === 'undefined') return;
+    const promptText = inputAiPrompt.value.trim();
+    if (!promptText) {
+      showFeedback('Please enter a prompt or instruction.', 'error');
+      inputAiPrompt.focus();
+      return;
+    }
+
+    const token = await AIAssistant.getToken();
+    if (!token) {
+      showFeedback('Please configure your API token first.', 'error');
+      openApiModal();
+      return;
+    }
+
+    aiPlaceholder.style.display = 'none';
+    aiResponseText.style.display = 'block';
+    aiResponseText.textContent = '';
+    aiLoader.style.display = 'inline';
+    btnAiSubmit.disabled = true;
+
+    try {
+      const result = await AIAssistant.generateResponse(promptText, checkAiChapterContext.checked);
+      aiResponseText.textContent = result;
+      showFeedback('Response received from AI.');
+    } catch (err) {
+      aiResponseText.textContent = `Error: ${err.message || 'Failed to generate response.'}`;
+      showFeedback(err.message || 'Error occurred.', 'error');
+    } finally {
+      aiLoader.style.display = 'none';
+      btnAiSubmit.disabled = false;
+    }
+  });
+
+  btnCopyAiOutput.addEventListener('click', () => {
+    const text = aiResponseText.textContent.trim();
+    if (!text) {
+      showFeedback('No response content to copy.', 'error');
+      return;
+    }
+    navigator.clipboard.writeText(text).then(() => {
+      showFeedback('Response copied to clipboard.');
+    });
+  });
+
+  btnClearAiOutput.addEventListener('click', () => {
+    aiResponseText.textContent = '';
+    aiResponseText.style.display = 'none';
+    aiPlaceholder.style.display = 'flex';
+    inputAiPrompt.value = '';
   });
 
   btnImport.addEventListener('click', () => {
@@ -818,6 +1020,7 @@
       updateScopeUI();
       // Ensure the content script receives and applies the dictionary immediately
       notifyContentScript();
+      checkAiTokenStatus();
     });
   }
 

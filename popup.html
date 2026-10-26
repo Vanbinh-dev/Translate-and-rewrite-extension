@@ -8,10 +8,9 @@
 </head>
 <body>
   <div class="app-container">
-    <!-- Header: Brand & Scope Bar -->
+    <!-- Header: Brand & View Navigation -->
     <header class="app-header">
       <div class="header-brand">
-        <!-- Clean hollow outline logo -->
         <div class="brand-logo-outline" aria-hidden="true">
           <svg class="hollow-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
             <path d="M12 3v18"/>
@@ -21,10 +20,121 @@
         </div>
         <div class="brand-text">
           <h1 class="brand-title">Writing Style</h1>
-          <p class="brand-subtitle">Term Replacer</p>
+          <p id="app-view-label" class="brand-subtitle">Term Replacer</p>
         </div>
       </div>
 
+      <!-- Optimized Primary Navbar -->
+      <nav class="toolbar-nav" aria-label="Main toolbar navigation">
+        <button type="button" id="btn-nav-home" class="btn-tool-hollow active" title="Dictionary mode" aria-label="Home / Dictionary">
+          <svg class="hollow-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+            <polyline points="9 22 9 12 15 12 15 22"/>
+          </svg>
+          <span>Home</span>
+        </button>
+
+        <button type="button" id="btn-nav-ai" class="btn-tool-hollow" title="AI Studio Assistant" aria-label="AI Studio">
+          <svg class="hollow-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 2v4"/>
+            <path d="m4.93 4.93 2.83 2.83"/>
+            <path d="M2 12h4"/>
+            <path d="m4.93 19.07 2.83-2.83"/>
+            <path d="M12 22v-4"/>
+            <path d="m19.07 19.07-2.83-2.83"/>
+            <path d="M22 12h-4"/>
+            <path d="m19.07 4.93-2.83 2.83"/>
+          </svg>
+          <span>AI</span>
+        </button>
+
+        <button type="button" id="btn-nav-api" class="btn-tool-hollow" title="Manage AI API Token" aria-label="API Settings">
+          <svg class="hollow-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="m21 2-2 2m-1.5 1.5L12 11l-4-4 5.5-5.5z"/>
+            <path d="m15.5 7.5 3 3"/>
+            <circle cx="7.5" cy="16.5" r="4.5"/>
+            <path d="m10.5 13.5 2 2"/>
+            <path d="m8.5 15.5 2 2"/>
+          </svg>
+          <span>API</span>
+        </button>
+
+        <button type="button" id="btn-nav-login" class="btn-tool-hollow" title="Sign in / Sync" aria-label="Login">
+          <svg class="hollow-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="8" r="5"/>
+            <path d="M20 21a8 8 0 0 0-16 0"/>
+          </svg>
+          <span id="login-label">Login</span>
+        </button>
+      </nav>
+    </header>
+
+    <!-- Feedback Banner -->
+    <div id="feedback-banner" class="feedback-banner" style="display: none;" role="alert"></div>
+
+    <!-- API Token Management Modal / Dropdown -->
+    <div id="api-modal-panel" class="api-modal-panel" style="display: none;" role="dialog" aria-labelledby="api-modal-title">
+      <div class="api-modal-header">
+        <div class="api-title-row">
+          <h2 id="api-modal-title" class="section-title">AI Model API Token</h2>
+          <span id="api-status-badge" class="badge-status unconfigured">No Token</span>
+        </div>
+        <button type="button" id="btn-close-api-modal" class="btn-icon-tiny" title="Close" aria-label="Close modal">
+          <svg class="hollow-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"/>
+            <line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </div>
+
+      <div class="api-modal-body">
+        <div class="form-group">
+          <label for="select-ai-provider" class="input-label">Provider & Model</label>
+          <select id="select-ai-provider" class="text-input select-input">
+            <option value="gemini:gemini-1.5-flash">Google Gemini (1.5 Flash - Free Tier)</option>
+            <option value="gemini:gemini-2.0-flash">Google Gemini (2.0 Flash)</option>
+            <option value="openai:gpt-4o-mini">OpenAI (GPT-4o mini)</option>
+            <option value="openai:custom">Custom OpenAI-Compatible API</option>
+          </select>
+        </div>
+
+        <div id="custom-endpoint-group" class="form-group" style="display: none;">
+          <label for="input-custom-endpoint" class="input-label">Custom API Endpoint URL</label>
+          <input type="text" id="input-custom-endpoint" class="text-input" placeholder="https://api.openai.com/v1/chat/completions" autocomplete="off">
+        </div>
+
+        <div class="form-group">
+          <div class="label-row-search">
+            <label for="input-api-token" class="input-label">API Key / Token</label>
+            <button type="button" id="btn-toggle-token-visibility" class="btn-link-action" title="Toggle visibility">Show</button>
+          </div>
+          <input type="password" id="input-api-token" class="text-input" placeholder="Paste your API token here..." autocomplete="off">
+        </div>
+
+        <div class="api-actions-row">
+          <button type="button" id="btn-save-api-token" class="btn-primary-hollow">
+            <svg class="hollow-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="20 6 9 17 4 12"/>
+            </svg>
+            <span>Save Token</span>
+          </button>
+          <button type="button" id="btn-remove-api-token" class="btn-danger-hollow" title="Remove stored token from browser">
+            <svg class="hollow-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3 6h18"/>
+              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/>
+              <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+            </svg>
+            <span>Remove</span>
+          </button>
+        </div>
+        <p class="scope-hint">Token is stored locally in your browser storage and never shared.</p>
+      </div>
+    </div>
+
+    <!-- ========================================================
+         VIEW 1: DICTIONARY & SCOPED REPLACER (DEFAULT)
+         ======================================================== -->
+    <main id="view-dictionary" class="app-view active">
       <!-- Scope Indicator with Edit Trigger -->
       <div class="scope-container">
         <div id="scope-badge-display" class="scope-badge" title="Active replacement scope">
@@ -37,174 +147,229 @@
           </button>
         </div>
       </div>
-    </header>
 
-    <!-- Inline Scope / Domain Customizer (Hidden by default) -->
-    <div id="scope-edit-panel" class="scope-edit-panel" style="display: none;">
-      <div class="scope-edit-row">
-        <input type="text" id="input-scope-pattern" class="scope-input" placeholder="e.g. ln.hako.vn/ai-dich/27598/*" autocomplete="off">
-        <button type="button" id="btn-save-scope" class="btn-icon-action" title="Save Scope Pattern">
-          <svg class="hollow-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-            <polyline points="20 6 9 17 4 12"/>
-          </svg>
-        </button>
-        <button type="button" id="btn-cancel-scope" class="btn-icon-action" title="Cancel">
-          <svg class="hollow-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-            <line x1="18" y1="6" x2="6" y2="18"/>
-            <line x1="6" y1="6" x2="18" y2="18"/>
-          </svg>
-        </button>
-      </div>
-      <p class="scope-hint">Pattern with <code>*</code> matches all chapter URLs in this novel series.</p>
-    </div>
-
-    <!-- Scope Selector Tabs: Current Novel vs Global -->
-    <div class="scope-switch-tabs" role="tablist">
-      <button type="button" id="tab-scope-novel" class="tab-scope active" role="tab" aria-selected="true">
-        Current Novel
-      </button>
-      <button type="button" id="tab-scope-global" class="tab-scope" role="tab" aria-selected="false">
-        Global
-      </button>
-    </div>
-
-    <!-- Toolbar: 4 Pure Monochrome Hollow Buttons -->
-    <nav class="toolbar-nav" aria-label="Toolbar navigation">
-      <button type="button" id="btn-home" class="btn-tool-hollow" title="Scroll to top & focus" aria-label="Home">
-        <svg class="hollow-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-          <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
-          <polyline points="9 22 9 12 15 12 15 22"/>
-        </svg>
-        <span>Home</span>
-      </button>
-
-      <button type="button" id="btn-login" class="btn-tool-hollow" title="Sign in / Sync" aria-label="Login">
-        <svg class="hollow-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="12" cy="8" r="5"/>
-          <path d="M20 21a8 8 0 0 0-16 0"/>
-        </svg>
-        <span id="login-label">Login</span>
-      </button>
-
-      <button type="button" id="btn-import" class="btn-tool-hollow" title="Import .txt dictionary" aria-label="Import dictionary">
-        <svg class="hollow-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-          <polyline points="17 8 12 3 7 8"/>
-          <line x1="12" y1="3" x2="12" y2="15"/>
-        </svg>
-        <span>Import</span>
-      </button>
-      <input type="file" id="file-import-input" accept=".txt" style="display: none;" aria-hidden="true">
-
-      <button type="button" id="btn-export" class="btn-tool-hollow" title="Export .txt dictionary" aria-label="Export dictionary">
-        <svg class="hollow-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-          <polyline points="7 10 12 15 17 10"/>
-          <line x1="12" y1="15" x2="12" y2="3"/>
-        </svg>
-        <span>Export</span>
-      </button>
-    </nav>
-
-    <!-- Feedback Banner -->
-    <div id="feedback-banner" class="feedback-banner" style="display: none;" role="alert"></div>
-
-    <!-- Input Form -->
-    <section class="card-input" aria-labelledby="input-section-heading">
-      <div class="input-header-row">
-        <h2 id="input-section-heading" class="section-title">Add Term Pair</h2>
-        <!-- Live Match Navigation & Badge -->
-        <div id="search-nav-bar" class="search-nav-bar" style="display: none;">
-          <span id="match-counter-badge" class="match-badge not-found">0 matches</span>
-          <div class="match-nav-actions">
-            <button type="button" id="btn-prev-match" class="btn-match-nav" title="Previous match in page (Shift+Enter)">
-              <svg class="hollow-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                <polyline points="18 15 12 9 6 15"/>
-              </svg>
-            </button>
-            <button type="button" id="btn-next-match" class="btn-match-nav" title="Next match in page (Enter)">
-              <svg class="hollow-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                <polyline points="6 9 12 15 18 9"/>
-              </svg>
-            </button>
-          </div>
-        </div>
-      </div>
-      
-      <form id="form-add-term" class="term-form" novalidate>
-        <div class="inputs-grid">
-          <div class="form-group">
-            <div class="label-row-search">
-              <label for="input-original" class="input-label">Original Term</label>
-              <span class="search-live-tag">Page Search</span>
-            </div>
-            <input type="text" id="input-original" class="text-input" placeholder="e.g. Crimson" autocomplete="off" required>
-          </div>
-
-          <div class="arrow-indicator" aria-hidden="true">
+      <!-- Inline Scope / Domain Customizer -->
+      <div id="scope-edit-panel" class="scope-edit-panel" style="display: none;">
+        <div class="scope-edit-row">
+          <input type="text" id="input-scope-pattern" class="scope-input" placeholder="e.g. ln.hako.vn/ai-dich/27598/*" autocomplete="off">
+          <button type="button" id="btn-save-scope" class="btn-icon-action" title="Save Scope Pattern">
             <svg class="hollow-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M5 12h14"/>
-              <path d="m12 5 7 7-7 7"/>
+              <polyline points="20 6 9 17 4 12"/>
             </svg>
+          </button>
+          <button type="button" id="btn-cancel-scope" class="btn-icon-action" title="Cancel">
+            <svg class="hollow-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18"/>
+              <line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+          </button>
+        </div>
+        <p class="scope-hint">Pattern with <code>*</code> matches all chapter URLs in this novel series.</p>
+      </div>
+
+      <!-- Scope Selector Tabs: Current Novel vs Global -->
+      <div class="scope-switch-tabs" role="tablist">
+        <button type="button" id="tab-scope-novel" class="tab-scope active" role="tab" aria-selected="true">
+          Current Novel
+        </button>
+        <button type="button" id="tab-scope-global" class="tab-scope" role="tab" aria-selected="false">
+          Global
+        </button>
+      </div>
+
+      <!-- Input Form -->
+      <section class="card-input" aria-labelledby="input-section-heading">
+        <div class="input-header-row">
+          <h2 id="input-section-heading" class="section-title">Add Term Pair</h2>
+          <!-- Live Match Navigation & Badge -->
+          <div id="search-nav-bar" class="search-nav-bar" style="display: none;">
+            <span id="match-counter-badge" class="match-badge not-found">0 matches</span>
+            <div class="match-nav-actions">
+              <button type="button" id="btn-prev-match" class="btn-match-nav" title="Previous match in page (Shift+Enter)">
+                <svg class="hollow-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="18 15 12 9 6 15"/>
+                </svg>
+              </button>
+              <button type="button" id="btn-next-match" class="btn-match-nav" title="Next match in page (Enter)">
+                <svg class="hollow-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="6 9 12 15 18 9"/>
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
+        
+        <form id="form-add-term" class="term-form" novalidate>
+          <div class="inputs-grid">
+            <div class="form-group">
+              <div class="label-row-search">
+                <label for="input-original" class="input-label">Original Term</label>
+                <span class="search-live-tag">Page Search</span>
+              </div>
+              <input type="text" id="input-original" class="text-input" placeholder="e.g. Crimson" autocomplete="off" required>
+            </div>
+
+            <div class="arrow-indicator" aria-hidden="true">
+              <svg class="hollow-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M5 12h14"/>
+                <path d="m12 5 7 7-7 7"/>
+              </svg>
+            </div>
+
+            <div class="form-group">
+              <label for="input-replacement" class="input-label">Replacement</label>
+              <input type="text" id="input-replacement" class="text-input" placeholder="e.g. Scarlet" autocomplete="off" required>
+            </div>
           </div>
 
-          <div class="form-group">
-            <label for="input-replacement" class="input-label">Replacement</label>
-            <input type="text" id="input-replacement" class="text-input" placeholder="e.g. Scarlet" autocomplete="off" required>
+          <div class="form-options">
+            <label class="checkbox-label" title="Preserve lowercase, Title Case, and UPPERCASE">
+              <input type="checkbox" id="check-preserve-case" checked>
+              <span>Preserve letter casing (Aa)</span>
+            </label>
+          </div>
+
+          <button type="submit" id="btn-add-term" class="btn-primary-hollow">
+            <svg class="hollow-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="12" y1="5" x2="12" y2="19"/>
+              <line x1="5" y1="12" x2="19" y2="12"/>
+            </svg>
+            <span>Add to Dictionary</span>
+          </button>
+        </form>
+      </section>
+
+      <!-- Scrollable Term List -->
+      <section class="card-list" aria-labelledby="list-section-heading">
+        <div class="list-header">
+          <h2 id="list-section-heading" class="section-title">
+            Saved Terms (<span id="term-count">0</span>)
+          </h2>
+          <div class="list-header-actions">
+            <button type="button" id="btn-import" class="btn-icon-subtle" title="Import .txt dictionary">
+              <svg class="hollow-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                <polyline points="17 8 12 3 7 8"/>
+                <line x1="12" y1="3" x2="12" y2="15"/>
+              </svg>
+            </button>
+            <input type="file" id="file-import-input" accept=".txt" style="display: none;" aria-hidden="true">
+            <button type="button" id="btn-export" class="btn-icon-subtle" title="Export .txt dictionary">
+              <svg class="hollow-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                <polyline points="7 10 12 15 17 10"/>
+                <line x1="12" y1="15" x2="12" y2="3"/>
+              </svg>
+            </button>
+            <button type="button" id="btn-clear-all" class="btn-link-danger" title="Clear all saved terms">
+              Clear all
+            </button>
           </div>
         </div>
 
-        <div class="form-options">
-          <label class="checkbox-label" title="Preserve lowercase, Title Case, and UPPERCASE">
-            <input type="checkbox" id="check-preserve-case" checked>
-            <span>Preserve letter casing (Aa)</span>
+        <!-- Quick Filter for Saved Terms -->
+        <div class="list-filter-row">
+          <div class="filter-input-wrap">
+            <svg class="hollow-icon-xs filter-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="11" cy="11" r="8"/>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            </svg>
+            <input type="text" id="input-filter-terms" class="filter-input" placeholder="Filter saved dictionary..." autocomplete="off">
+          </div>
+        </div>
+
+        <div id="term-list-container" class="term-list-scrollable" tabindex="0" aria-label="Scrollable term list">
+          <div id="empty-state" class="empty-state">
+            <svg class="empty-icon-hollow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z"/>
+              <line x1="8" y1="7" x2="16" y2="7"/>
+              <line x1="8" y1="11" x2="14" y2="11"/>
+            </svg>
+            <p class="empty-title">No terms saved yet</p>
+            <p class="empty-desc">Add a term pair above or click <strong>Import</strong> to load from a .txt file.</p>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- ========================================================
+         VIEW 2: AI ASSISTANT (2 COMPACT PANELS)
+         ======================================================== -->
+    <main id="view-ai-assistant" class="app-view" style="display: none;">
+      <!-- Panel 1: AI Prompt Input -->
+      <section class="card-ai-panel card-ai-input" aria-labelledby="ai-input-heading">
+        <div class="input-header-row">
+          <h2 id="ai-input-heading" class="section-title">AI Prompt & Rewrite</h2>
+          <label class="checkbox-inline-xs" title="Send current chapter text as reference context">
+            <input type="checkbox" id="check-ai-chapter-context" checked>
+            <span>Attach chapter</span>
           </label>
         </div>
 
-        <button type="submit" id="btn-add-term" class="btn-primary-hollow">
-          <svg class="hollow-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-            <line x1="12" y1="5" x2="12" y2="19"/>
-            <line x1="5" y1="12" x2="19" y2="12"/>
-          </svg>
-          <span>Add to Dictionary</span>
-        </button>
-      </form>
-    </section>
-
-    <!-- Scrollable Term List -->
-    <section class="card-list" aria-labelledby="list-section-heading">
-      <div class="list-header">
-        <h2 id="list-section-heading" class="section-title">
-          Saved Terms (<span id="term-count">0</span>)
-        </h2>
-        <button type="button" id="btn-clear-all" class="btn-link-danger" title="Clear all saved terms">
-          Clear all
-        </button>
-      </div>
-
-      <!-- Quick Filter for Saved Terms -->
-      <div class="list-filter-row">
-        <div class="filter-input-wrap">
-          <svg class="hollow-icon-xs filter-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="11" cy="11" r="8"/>
-            <line x1="21" y1="21" x2="16.65" y2="16.65"/>
-          </svg>
-          <input type="text" id="input-filter-terms" class="filter-input" placeholder="Filter saved dictionary..." autocomplete="off">
+        <!-- Quick Template Prompt Chips -->
+        <div class="ai-chips-row">
+          <button type="button" class="btn-chip" data-prompt="Adjust writing style to be more poetic, natural, and expressive for this paragraph:">
+            Rewrite style
+          </button>
+          <button type="button" class="btn-chip" data-prompt="Analyze this text and extract all novel character names, factions, and special terms in 'Original -> Replacement' format:">
+            Extract terms
+          </button>
+          <button type="button" class="btn-chip" data-prompt="Translate and polish this web novel excerpt with accurate fantasy context:">
+            Polish translation
+          </button>
         </div>
-      </div>
 
-      <div id="term-list-container" class="term-list-scrollable" tabindex="0" aria-label="Scrollable term list">
-        <div id="empty-state" class="empty-state">
-          <svg class="empty-icon-hollow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z"/>
-            <line x1="8" y1="7" x2="16" y2="7"/>
-            <line x1="8" y1="11" x2="14" y2="11"/>
-          </svg>
-          <p class="empty-title">No terms saved yet</p>
-          <p class="empty-desc">Add a term pair above or click <strong>Import</strong> to load from a .txt file.</p>
+        <div class="form-group">
+          <textarea id="input-ai-prompt" class="textarea-ai" rows="3" placeholder="Type prompt or command for AI model..."></textarea>
         </div>
-      </div>
-    </section>
+
+        <div class="ai-submit-row">
+          <span id="ai-token-warning" class="hint-warning" style="display: none;">API Key not configured.</span>
+          <button type="button" id="btn-ai-submit" class="btn-primary-hollow">
+            <svg class="hollow-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="22" y1="2" x2="11" y2="13"/>
+              <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+            </svg>
+            <span>Generate</span>
+          </button>
+        </div>
+      </section>
+
+      <!-- Panel 2: AI Output Response -->
+      <section class="card-ai-panel card-ai-output" aria-labelledby="ai-output-heading">
+        <div class="input-header-row">
+          <div class="output-title-wrap">
+            <h2 id="ai-output-heading" class="section-title">AI Response</h2>
+            <span id="ai-loader" class="ai-loader-pulse" style="display: none;">Thinking...</span>
+          </div>
+          <div class="output-actions">
+            <button type="button" id="btn-copy-ai-output" class="btn-icon-subtle" title="Copy response to clipboard">
+              <svg class="hollow-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+              </svg>
+            </button>
+            <button type="button" id="btn-clear-ai-output" class="btn-icon-subtle" title="Clear response">
+              <svg class="hollow-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <line x1="18" y1="6" x2="6" y2="18"/>
+                <line x1="6" y1="6" x2="18" y2="18"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <div id="ai-response-container" class="ai-response-scrollable" tabindex="0">
+          <div id="ai-placeholder" class="empty-state-ai">
+            <svg class="empty-icon-hollow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <circle cx="12" cy="12" r="10"/>
+              <path d="m10 15 5-3-5-3v6Z"/>
+            </svg>
+            <p class="empty-desc">Send a prompt above to receive AI-assisted terminology and rewriting recommendations.</p>
+          </div>
+          <div id="ai-response-text" class="ai-markdown-content" style="display: none;"></div>
+        </div>
+      </section>
+    </main>
 
     <!-- Footer -->
     <footer class="app-footer">
@@ -212,6 +377,7 @@
     </footer>
   </div>
 
+  <script src="ai-assistant.js"></script>
   <script src="popup.js"></script>
 </body>
 </html>
