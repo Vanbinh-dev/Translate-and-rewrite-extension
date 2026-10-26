@@ -8,54 +8,99 @@
 </head>
 <body>
   <div class="app-container">
-    <!-- Header: Brand & Active Domain Badge -->
+    <!-- Header: Brand & Scope Bar -->
     <header class="app-header">
       <div class="header-brand">
-        <div class="brand-logo" aria-hidden="true">A</div>
+        <!-- Clean hollow outline logo -->
+        <div class="brand-logo-outline" aria-hidden="true">
+          <svg class="hollow-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 3v18"/>
+            <path d="M5 7l7-4 7 4"/>
+            <path d="M5 17l7 4 7-4"/>
+          </svg>
+        </div>
         <div class="brand-text">
           <h1 class="brand-title">Writing Style</h1>
           <p class="brand-subtitle">Term Replacer</p>
         </div>
       </div>
-      <div id="site-badge" class="site-badge" title="Active website">
-        <span class="status-dot"></span>
-        <span id="site-hostname" class="site-hostname">Detecting site...</span>
+
+      <!-- Scope Indicator with Edit Trigger -->
+      <div class="scope-container">
+        <div id="scope-badge-display" class="scope-badge" title="Active replacement scope">
+          <span class="status-dot"></span>
+          <span id="scope-display-text" class="scope-text">Detecting...</span>
+          <button type="button" id="btn-toggle-scope-edit" class="btn-icon-inline" title="Edit Scope / Domain" aria-label="Edit scope">
+            <svg class="hollow-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/>
+            </svg>
+          </button>
+        </div>
       </div>
     </header>
 
-    <!-- Toolbar: Home, Login, Import, Export -->
+    <!-- Inline Scope / Domain Customizer (Hidden by default) -->
+    <div id="scope-edit-panel" class="scope-edit-panel" style="display: none;">
+      <div class="scope-edit-row">
+        <input type="text" id="input-scope-pattern" class="scope-input" placeholder="e.g. ln.hako.vn/ai-dich/27598/*" autocomplete="off">
+        <button type="button" id="btn-save-scope" class="btn-icon-action" title="Save Scope Pattern">
+          <svg class="hollow-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="20 6 9 17 4 12"/>
+          </svg>
+        </button>
+        <button type="button" id="btn-cancel-scope" class="btn-icon-action" title="Cancel">
+          <svg class="hollow-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"/>
+            <line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </div>
+      <p class="scope-hint">Pattern with <code>*</code> matches all chapter URLs in this novel series.</p>
+    </div>
+
+    <!-- Scope Selector Tabs: Current Novel vs Global -->
+    <div class="scope-switch-tabs" role="tablist">
+      <button type="button" id="tab-scope-novel" class="tab-scope active" role="tab" aria-selected="true">
+        Current Novel
+      </button>
+      <button type="button" id="tab-scope-global" class="tab-scope" role="tab" aria-selected="false">
+        Global
+      </button>
+    </div>
+
+    <!-- Toolbar: 4 Pure Monochrome Hollow Buttons -->
     <nav class="toolbar-nav" aria-label="Toolbar navigation">
-      <button type="button" id="btn-home" class="btn-tool" title="Home / Reset view" aria-label="Home">
-        <svg class="tool-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <button type="button" id="btn-home" class="btn-tool-hollow" title="Scroll to top & focus" aria-label="Home">
+        <svg class="hollow-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
           <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
           <polyline points="9 22 9 12 15 12 15 22"/>
         </svg>
         <span>Home</span>
       </button>
 
-      <button type="button" id="btn-login" class="btn-tool" title="Sign in / Sync" aria-label="Login">
-        <svg class="tool-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/>
-          <circle cx="12" cy="7" r="4"/>
+      <button type="button" id="btn-login" class="btn-tool-hollow" title="Sign in / Sync" aria-label="Login">
+        <svg class="hollow-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="8" r="5"/>
+          <path d="M20 21a8 8 0 0 0-16 0"/>
         </svg>
         <span id="login-label">Login</span>
       </button>
 
-      <button type="button" id="btn-import" class="btn-tool" title="Import .txt dictionary" aria-label="Import dictionary">
-        <svg class="tool-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <button type="button" id="btn-import" class="btn-tool-hollow" title="Import .txt dictionary" aria-label="Import dictionary">
+        <svg class="hollow-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
           <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
           <polyline points="17 8 12 3 7 8"/>
-          <line x1="12" x2="12" y1="3" y2="15"/>
+          <line x1="12" y1="3" x2="12" y2="15"/>
         </svg>
         <span>Import</span>
       </button>
       <input type="file" id="file-import-input" accept=".txt" style="display: none;" aria-hidden="true">
 
-      <button type="button" id="btn-export" class="btn-tool" title="Export .txt dictionary" aria-label="Export dictionary">
-        <svg class="tool-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <button type="button" id="btn-export" class="btn-tool-hollow" title="Export .txt dictionary" aria-label="Export dictionary">
+        <svg class="hollow-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
           <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
           <polyline points="7 10 12 15 17 10"/>
-          <line x1="12" x2="12" y1="15" y2="3"/>
+          <line x1="12" y1="15" x2="12" y2="3"/>
         </svg>
         <span>Export</span>
       </button>
@@ -64,9 +109,13 @@
     <!-- Feedback Banner -->
     <div id="feedback-banner" class="feedback-banner" style="display: none;" role="alert"></div>
 
-    <!-- Input Card -->
+    <!-- Input Form -->
     <section class="card-input" aria-labelledby="input-section-heading">
-      <h2 id="input-section-heading" class="section-title">Add Term Pair</h2>
+      <div class="input-header-row">
+        <h2 id="input-section-heading" class="section-title">Add Term Pair</h2>
+        <!-- Live Match Badge -->
+        <span id="match-counter-badge" class="match-badge" style="display: none;">0 matches</span>
+      </div>
       
       <form id="form-add-term" class="term-form" novalidate>
         <div class="inputs-grid">
@@ -76,7 +125,7 @@
           </div>
 
           <div class="arrow-indicator" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <svg class="hollow-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
               <path d="M5 12h14"/>
               <path d="m12 5 7 7-7 7"/>
             </svg>
@@ -89,23 +138,23 @@
         </div>
 
         <div class="form-options">
-          <label class="checkbox-label" title="Automatically handle lower, Title Case, and UPPERCASE">
+          <label class="checkbox-label" title="Preserve lowercase, Title Case, and UPPERCASE">
             <input type="checkbox" id="check-preserve-case" checked>
             <span>Preserve letter casing (Aa)</span>
           </label>
         </div>
 
-        <button type="submit" id="btn-add-term" class="btn-primary">
-          <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M12 5v14"/>
-            <path d="M5 12h14"/>
+        <button type="submit" id="btn-add-term" class="btn-primary-hollow">
+          <svg class="hollow-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="12" y1="5" x2="12" y2="19"/>
+            <line x1="5" y1="12" x2="19" y2="12"/>
           </svg>
           <span>Add to Dictionary</span>
         </button>
       </form>
     </section>
 
-    <!-- Scrollable Term List Card -->
+    <!-- Scrollable Term List -->
     <section class="card-list" aria-labelledby="list-section-heading">
       <div class="list-header">
         <h2 id="list-section-heading" class="section-title">
@@ -118,10 +167,10 @@
 
       <div id="term-list-container" class="term-list-scrollable" tabindex="0" aria-label="Scrollable term list">
         <div id="empty-state" class="empty-state">
-          <svg class="empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <svg class="empty-icon-hollow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
             <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z"/>
-            <path d="M6 6h10"/>
-            <path d="M6 10h7"/>
+            <line x1="8" y1="7" x2="16" y2="7"/>
+            <line x1="8" y1="11" x2="14" y2="11"/>
           </svg>
           <p class="empty-title">No terms saved yet</p>
           <p class="empty-desc">Add a term pair above or click <strong>Import</strong> to load from a .txt file.</p>
@@ -131,7 +180,7 @@
 
     <!-- Footer -->
     <footer class="app-footer">
-      <span class="footer-note">Standalone • In-browser in-place replacement</span>
+      <span class="footer-note">Standalone • Dynamic In-Place Mutation</span>
     </footer>
   </div>
 

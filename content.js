@@ -1,6 +1,7 @@
 /**
  * Adjusting Writing Style - Universal Content Script
- * Scans DOM text nodes, listens for dynamic mutations, and replaces terms in-place.
+ * Scans DOM text nodes, listens for dynamic mutations, handles live search/highlighting,
+ * and replaces terms in-place with zero layout shift.
  */
 
 (() => {
@@ -73,7 +74,87 @@
   }
 
   // ==========================================
-  // 3. CORE REPLACEMENT LOGIC
+  // 3. LIVE SEARCH & IN-PAGE HIGHLIGHT
+  // ==========================================
+  function clearSearchHighlights() {
+    const marks = document.querySelectorAll('.novel-match-highlight');
+    marks.forEach(mark => {
+      const parent = mark.parentNode;
+      if (parent) {
+        while (mark.firstChild) {
+          parent.insertBefore(mark.firstChild, mark);
+        }
+        parent.removeChild(mark);
+        parent.normalize();
+      }
+    });
+  }
+
+  function searchAndHighlight(query) {
+    clearSearchHighlights();
+    if (!query || !query.trim()) return { count: 0 };
+
+    const trimmed = query.trim();
+    const escaped = escapeRegExp(trimmed);
+    const regex = new RegExp(escaped, 'gi');
+
+    const root = document.querySelector('#chapter-content') || document.body;
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+      acceptNode: (node) => {
+        if (shouldFilterTag(node)) return NodeFilter.FILTER_REJECT;
+        if (node.parentElement?.classList?.contains('novel-match-highlight')) {
+          return NodeFilter.FILTER_REJECT;
+        }
+        return NodeFilter.FILTER_ACCEPT;
+      }
+    });
+
+    const matchingNodes = [];
+    let node;
+    while ((node = walker.nextNode())) {
+      if (regex.test(node.nodeValue)) {
+        matchingNodes.push(node);
+      }
+      regex.lastIndex = 0;
+    }
+
+    let totalMatches = 0;
+    for (const textNode of matchingNodes) {
+      const text = textNode.nodeValue;
+      const parent = textNode.parentNode;
+      if (!parent) continue;
+
+      const fragment = document.createDocumentFragment();
+      let lastIdx = 0;
+      let match;
+
+      while ((match = regex.exec(text)) !== null) {
+        totalMatches++;
+        if (match.index > lastIdx) {
+          fragment.appendChild(document.createTextNode(text.substring(lastIdx, match.index)));
+        }
+
+        const mark = document.createElement('mark');
+        mark.className = 'novel-match-highlight';
+        mark.style.cssText = 'background: rgba(254, 240, 138, 0.45); color: inherit; outline: 1px dashed rgba(202, 138, 4, 0.8); border-radius: 2px; padding: 0 1px;';
+        mark.textContent = match[0];
+        fragment.appendChild(mark);
+
+        lastIdx = regex.lastIndex;
+      }
+
+      if (lastIdx < text.length) {
+        fragment.appendChild(document.createTextNode(text.substring(lastIdx)));
+      }
+
+      parent.replaceChild(fragment, textNode);
+    }
+
+    return { count: totalMatches };
+  }
+
+  // ==========================================
+  // 4. CORE REPLACEMENT LOGIC
   // ==========================================
   function replaceTextInString(text, dict) {
     if (!text || dict.length === 0) return text;
@@ -109,7 +190,7 @@
   function scanAndReplace(root = document.body) {
     if (!root || activeDictionary.length === 0) return;
 
-    // Prioritize longer phrases before shorter substrings
+    clearSearchHighlights();
     const sortedDict = [...activeDictionary].sort((a, b) => b.from.length - a.from.length);
 
     isProcessing = true;
@@ -131,7 +212,6 @@
         processTextNode(node, sortedDict);
       }
 
-      // Remove copy-protection overlays if present on reader sites
       const noSelects = document.querySelectorAll('.no-select, [style*="user-select: none"]');
       noSelects.forEach(el => {
         el.classList.remove('no-select');
@@ -143,7 +223,7 @@
   }
 
   // ==========================================
-  // 4. MUTATION OBSERVER FOR DYNAMIC CONTENT
+  // 5. MUTATION OBSERVER
   // ==========================================
   const observer = new MutationObserver((mutations) => {
     if (isProcessing || activeDictionary.length === 0) return;
@@ -169,12 +249,44 @@
   }
 
   // ==========================================
-  // 5. STORAGE & MESSAGING LIFECYCLE
+  // 6. SCOPE RESOLUTION & STORAGE
   // ==========================================
+  function extractNovelEndpoint(urlStr = window.location.href) {
+    try {
+      const url = new URL(urlStr);
+      const segments = url.pathname.split('/').filter(Boolean);
+      if (segments.length > 0) {
+        segments.pop(); // Remove chapter slug
+      }
+      const basePath = '/' + segments.join('/');
+      return {
+        hostname: url.hostname,
+        pattern: `${url.origin}${basePath}/*`,
+        endpoint: `${url.origin}${basePath}`
+      };
+    } catch (e) {
+      return null;
+    }
+  }
+
   function loadAndApply() {
     if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
-      chrome.storage.local.get([STORAGE_KEY], (res) => {
-        activeDictionary = res[STORAGE_KEY] || [];
+      chrome.storage.local.get([STORAGE_KEY, 'adjusting_writing_style_scopes'], (res) => {
+        const globalDict = res[STORAGE_KEY] || [];
+        const scopes = res['adjusting_writing_style_scopes'] || {};
+        
+        // Find matching scoped dictionary
+        const currentUrl = window.location.href;
+        let scopedDict = [];
+        for (const [pattern, dict] of Object.entries(scopes)) {
+          if (matchUrlPattern(currentUrl, pattern)) {
+            scopedDict = dict;
+            break;
+          }
+        }
+
+        // Merge global and scoped dictionaries (scoped takes precedence)
+        activeDictionary = [...scopedDict, ...globalDict];
         if (activeDictionary.length > 0) {
           scanAndReplace(document.body);
         }
@@ -182,12 +294,41 @@
     }
   }
 
+  function matchUrlPattern(urlStr, pattern) {
+    if (!pattern) return false;
+    try {
+      if (pattern.endsWith('*')) {
+        const prefix = pattern.slice(0, -1);
+        return urlStr.startsWith(prefix);
+      }
+      return urlStr === pattern;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  // ==========================================
+  // 7. RUNTIME MESSAGING
+  // ==========================================
   if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.onMessage) {
     chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       if (message.action === 'APPLY_DICTIONARY') {
         activeDictionary = message.dictionary || [];
         scanAndReplace(document.body);
         sendResponse({ status: 'OK' });
+      } else if (message.action === 'SEARCH_TERM') {
+        const result = searchAndHighlight(message.query);
+        sendResponse(result);
+      } else if (message.action === 'CLEAR_HIGHLIGHTS') {
+        clearSearchHighlights();
+        sendResponse({ status: 'OK' });
+      } else if (message.action === 'GET_PAGE_INFO') {
+        const novelInfo = extractNovelEndpoint(window.location.href);
+        sendResponse({
+          url: window.location.href,
+          hostname: window.location.hostname,
+          novelInfo: novelInfo
+        });
       }
       return true;
     });

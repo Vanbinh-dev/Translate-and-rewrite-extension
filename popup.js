@@ -1,24 +1,39 @@
 /**
  * Adjusting Writing Style - Popup Controller
- * Manages the UI, local storage persistence, text file I/O, and tab synchronization.
+ * Implements:
+ * 1. Live Match Counter & In-Page Highlight.
+ * 2. Automated Reverse Resolution & Rule Merging.
+ * 3. Per-Novel Slug Scoping & Custom Scope/Domain Editor.
+ * 4. Monochrome Hollow Line UI System.
  */
 
 (() => {
-  const STORAGE_KEY = 'adjusting_writing_style_dictionary';
+  const STORAGE_KEY_GLOBAL = 'adjusting_writing_style_dictionary';
+  const STORAGE_KEY_SCOPES = 'adjusting_writing_style_scopes';
 
   // DOM Elements
-  const siteHostnameEl = document.getElementById('site-hostname');
+  const scopeDisplayText = document.getElementById('scope-display-text');
+  const btnToggleScopeEdit = document.getElementById('btn-toggle-scope-edit');
+  const scopeEditPanel = document.getElementById('scope-edit-panel');
+  const inputScopePattern = document.getElementById('input-scope-pattern');
+  const btnSaveScope = document.getElementById('btn-save-scope');
+  const btnCancelScope = document.getElementById('btn-cancel-scope');
+
+  const tabScopeNovel = document.getElementById('tab-scope-novel');
+  const tabScopeGlobal = document.getElementById('tab-scope-global');
+
+  const matchCounterBadge = document.getElementById('match-counter-badge');
   const formAddTerm = document.getElementById('form-add-term');
   const inputOriginal = document.getElementById('input-original');
   const inputReplacement = document.getElementById('input-replacement');
   const checkPreserveCase = document.getElementById('check-preserve-case');
+
   const termListContainer = document.getElementById('term-list-container');
   const termCountEl = document.getElementById('term-count');
   const emptyStateEl = document.getElementById('empty-state');
   const btnClearAll = document.getElementById('btn-clear-all');
   const feedbackBanner = document.getElementById('feedback-banner');
 
-  // Toolbar buttons
   const btnHome = document.getElementById('btn-home');
   const btnLogin = document.getElementById('btn-login');
   const loginLabel = document.getElementById('login-label');
@@ -27,40 +42,82 @@
   const btnExport = document.getElementById('btn-export');
 
   // State
-  let dictionary = [];
+  let globalDictionary = [];
+  let scopeDictionaries = {}; // { [pattern]: [ { from, to, preserveCase } ] }
+  let currentScopeMode = 'NOVEL'; // 'NOVEL' | 'GLOBAL'
+  let activeScopePattern = '';
+  let activeTabId = null;
   let currentHostname = 'Reading page';
   let isLoggedIn = false;
+  let searchDebounceTimer = null;
 
   // ==========================================
-  // STORAGE ADAPTER
+  // 1. STORAGE ADAPTER
   // ==========================================
   const StorageAdapter = {
-    async get() {
+    async getAll() {
       if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
         return new Promise((resolve) => {
-          chrome.storage.local.get([STORAGE_KEY], (result) => {
-            resolve(result[STORAGE_KEY] || []);
+          chrome.storage.local.get([STORAGE_KEY_GLOBAL, STORAGE_KEY_SCOPES], (res) => {
+            resolve({
+              global: res[STORAGE_KEY_GLOBAL] || [],
+              scopes: res[STORAGE_KEY_SCOPES] || {}
+            });
           });
         });
       } else {
-        const raw = localStorage.getItem(STORAGE_KEY);
-        return raw ? JSON.parse(raw) : [];
+        const rawGlobal = localStorage.getItem(STORAGE_KEY_GLOBAL);
+        const rawScopes = localStorage.getItem(STORAGE_KEY_SCOPES);
+        return {
+          global: rawGlobal ? JSON.parse(rawGlobal) : [],
+          scopes: rawScopes ? JSON.parse(rawScopes) : {}
+        };
       }
     },
 
-    async set(entries) {
+    async saveGlobal(entries) {
       if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
         return new Promise((resolve) => {
-          chrome.storage.local.set({ [STORAGE_KEY]: entries }, resolve);
+          chrome.storage.local.set({ [STORAGE_KEY_GLOBAL]: entries }, resolve);
         });
       } else {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
+        localStorage.setItem(STORAGE_KEY_GLOBAL, JSON.stringify(entries));
+      }
+    },
+
+    async saveScopes(scopes) {
+      if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+        return new Promise((resolve) => {
+          chrome.storage.local.set({ [STORAGE_KEY_SCOPES]: scopes }, resolve);
+        });
+      } else {
+        localStorage.setItem(STORAGE_KEY_SCOPES, JSON.stringify(scopes));
       }
     }
   };
 
+  function getCurrentActiveList() {
+    if (currentScopeMode === 'GLOBAL') {
+      return globalDictionary;
+    }
+    if (!scopeDictionaries[activeScopePattern]) {
+      scopeDictionaries[activeScopePattern] = [];
+    }
+    return scopeDictionaries[activeScopePattern];
+  }
+
+  async function saveCurrentActiveList(newList) {
+    if (currentScopeMode === 'GLOBAL') {
+      globalDictionary = newList;
+      await StorageAdapter.saveGlobal(globalDictionary);
+    } else {
+      scopeDictionaries[activeScopePattern] = newList;
+      await StorageAdapter.saveScopes(scopeDictionaries);
+    }
+  }
+
   // ==========================================
-  // FEEDBACK NOTIFICATION
+  // 2. FEEDBACK BANNER
   // ==========================================
   let feedbackTimer = null;
   function showFeedback(message, type = 'success') {
@@ -71,19 +128,186 @@
 
     feedbackTimer = setTimeout(() => {
       feedbackBanner.style.display = 'none';
-    }, 2500);
+    }, 2800);
   }
 
   // ==========================================
-  // RENDER TERM LIST
+  // 3. LIVE MATCH SEARCH & IN-PAGE HIGHLIGHT
+  // ==========================================
+  function escapeRegExp(str) {
+    return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  }
+
+  function triggerLiveSearch(text) {
+    if (searchDebounceTimer) clearTimeout(searchDebounceTimer);
+
+    if (!text || !text.trim()) {
+      matchCounterBadge.style.display = 'none';
+      sendTabMessage({ action: 'CLEAR_HIGHLIGHTS' });
+      return;
+    }
+
+    searchDebounceTimer = setTimeout(() => {
+      sendTabMessage({ action: 'SEARCH_TERM', query: text.trim() }, (response) => {
+        if (!response) {
+          matchCounterBadge.style.display = 'none';
+          return;
+        }
+
+        const count = response.count || 0;
+        matchCounterBadge.style.display = 'inline-block';
+        if (count > 0) {
+          matchCounterBadge.className = 'match-badge found';
+          matchCounterBadge.textContent = `${count} ${count === 1 ? 'match' : 'matches'}`;
+        } else {
+          matchCounterBadge.className = 'match-badge not-found';
+          matchCounterBadge.textContent = '0 matches';
+        }
+      });
+    }, 120);
+  }
+
+  // ==========================================
+  // 4. AUTOMATED REVERSE RESOLUTION & MERGING
+  // ==========================================
+  function resolveToPristineSource(rawFrom, currentDict) {
+    const fromLower = rawFrom.trim().toLowerCase();
+
+    // 1. Check if user is reversing an existing rule (B -> A when A -> B exists)
+    const reverseMatch = currentDict.find(d => d.to.toLowerCase() === fromLower);
+    if (reverseMatch) {
+      return {
+        type: 'DIRECT_CHAIN',
+        pristineFrom: reverseMatch.from,
+        existingRule: reverseMatch
+      };
+    }
+
+    // 2. Check if user input contains a phrase that was already translated
+    let resolved = rawFrom.trim();
+    let modified = false;
+    const sortedByToLength = [...currentDict].sort((a, b) => b.to.length - a.to.length);
+
+    for (const rule of sortedByToLength) {
+      if (!rule.to) continue;
+      const regex = new RegExp(escapeRegExp(rule.to), 'gi');
+      if (regex.test(resolved)) {
+        resolved = resolved.replace(regex, rule.from);
+        modified = true;
+      }
+    }
+
+    if (modified) {
+      return {
+        type: 'SUBSTRING_RESOLVED',
+        pristineFrom: resolved
+      };
+    }
+
+    return {
+      type: 'ORIGINAL',
+      pristineFrom: rawFrom.trim()
+    };
+  }
+
+  // ==========================================
+  // 5. TERM ACTIONS
+  // ==========================================
+  async function addTerm(rawFrom, rawTo, preserveCase = true) {
+    rawFrom = rawFrom.trim();
+    rawTo = rawTo.trim();
+
+    if (!rawFrom || !rawTo) {
+      showFeedback('Please enter both original and replacement terms.', 'error');
+      return;
+    }
+
+    if (rawFrom.toLowerCase() === rawTo.toLowerCase()) {
+      showFeedback('Original and replacement terms cannot be identical.', 'error');
+      return;
+    }
+
+    const currentList = getCurrentActiveList();
+    const resolution = resolveToPristineSource(rawFrom, currentList);
+    const finalFrom = resolution.pristineFrom;
+
+    if (finalFrom.toLowerCase() === rawTo.toLowerCase()) {
+      // Reverted back to original: remove the rule
+      const idx = currentList.findIndex(d => d.from.toLowerCase() === finalFrom.toLowerCase());
+      if (idx >= 0) {
+        currentList.splice(idx, 1);
+        await saveCurrentActiveList(currentList);
+        renderList();
+        notifyContentScript();
+        showFeedback(`Reverted to pristine: "${finalFrom}" restored.`);
+        inputOriginal.value = '';
+        inputReplacement.value = '';
+        matchCounterBadge.style.display = 'none';
+        return;
+      }
+    }
+
+    // Check if pristine rule already exists
+    const existingIndex = currentList.findIndex(d => d.from.toLowerCase() === finalFrom.toLowerCase());
+    if (existingIndex >= 0) {
+      currentList[existingIndex].to = rawTo;
+      currentList[existingIndex].preserveCase = preserveCase;
+      if (resolution.type === 'DIRECT_CHAIN') {
+        showFeedback(`Auto-merged chain: "${finalFrom}" ➜ "${rawTo}"`);
+      } else {
+        showFeedback(`Updated: "${finalFrom}" ➜ "${rawTo}"`);
+      }
+    } else {
+      currentList.unshift({ from: finalFrom, to: rawTo, preserveCase });
+      if (resolution.type === 'SUBSTRING_RESOLVED') {
+        showFeedback(`Auto-resolved to pristine: "${finalFrom}" ➜ "${rawTo}"`);
+      } else {
+        showFeedback(`Added: "${finalFrom}" ➜ "${rawTo}"`);
+      }
+    }
+
+    await saveCurrentActiveList(currentList);
+    renderList();
+    notifyContentScript();
+
+    inputOriginal.value = '';
+    inputReplacement.value = '';
+    matchCounterBadge.style.display = 'none';
+    sendTabMessage({ action: 'CLEAR_HIGHLIGHTS' });
+    inputOriginal.focus();
+  }
+
+  async function removeTerm(index) {
+    const currentList = getCurrentActiveList();
+    const removed = currentList.splice(index, 1)[0];
+    await saveCurrentActiveList(currentList);
+    renderList();
+    notifyContentScript();
+    showFeedback(`Removed "${removed.from}"`);
+  }
+
+  async function clearAllTerms() {
+    const currentList = getCurrentActiveList();
+    if (currentList.length === 0) return;
+    if (confirm('Are you sure you want to clear all terms in this scope?')) {
+      await saveCurrentActiveList([]);
+      renderList();
+      notifyContentScript();
+      showFeedback('Scope dictionary cleared.');
+    }
+  }
+
+  // ==========================================
+  // 6. RENDER TERM LIST
   // ==========================================
   function renderList() {
-    termCountEl.textContent = dictionary.length;
+    const list = getCurrentActiveList();
+    termCountEl.textContent = list.length;
 
     const rows = termListContainer.querySelectorAll('.term-row');
     rows.forEach(r => r.remove());
 
-    if (dictionary.length === 0) {
+    if (list.length === 0) {
       emptyStateEl.style.display = 'flex';
       btnClearAll.style.display = 'none';
       return;
@@ -92,7 +316,7 @@
     emptyStateEl.style.display = 'none';
     btnClearAll.style.display = 'inline-block';
 
-    dictionary.forEach((item, index) => {
+    list.forEach((item, index) => {
       const row = document.createElement('div');
       row.className = 'term-row';
 
@@ -115,14 +339,17 @@
       pairContent.appendChild(arrowSpan);
       pairContent.appendChild(replacementSpan);
 
+      // Hollow outline trash icon
       const btnRemove = document.createElement('button');
       btnRemove.type = 'button';
       btnRemove.className = 'btn-remove-term';
       btnRemove.title = `Remove "${item.from}"`;
       btnRemove.setAttribute('aria-label', `Remove ${item.from}`);
       btnRemove.innerHTML = `
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+        <svg class="hollow-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 6h18"/>
+          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/>
+          <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
         </svg>
       `;
 
@@ -137,111 +364,111 @@
   }
 
   // ==========================================
-  // TERM ACTIONS
+  // 7. SCOPE MANAGEMENT & CUSTOM DOMAIN EDIT
   // ==========================================
-  async function addTerm(from, to, preserveCase = true) {
-    from = from.trim();
-    to = to.trim();
-
-    if (!from || !to) {
-      showFeedback('Please enter both original and replacement terms.', 'error');
-      return;
-    }
-
-    if (from.toLowerCase() === to.toLowerCase()) {
-      showFeedback('Original and replacement terms cannot be identical.', 'error');
-      return;
-    }
-
-    const existingIndex = dictionary.findIndex(d => d.from.toLowerCase() === from.toLowerCase());
-    if (existingIndex >= 0) {
-      dictionary[existingIndex].to = to;
-      dictionary[existingIndex].preserveCase = preserveCase;
-      showFeedback(`Updated: "${from}" ➜ "${to}"`);
+  function updateScopeUI() {
+    if (currentScopeMode === 'GLOBAL') {
+      scopeDisplayText.textContent = 'Global (All Web)';
+      tabScopeGlobal.classList.add('active');
+      tabScopeNovel.classList.remove('active');
+      btnToggleScopeEdit.style.display = 'none';
     } else {
-      dictionary.unshift({ from, to, preserveCase });
-      showFeedback(`Added: "${from}" ➜ "${to}"`);
+      scopeDisplayText.textContent = activeScopePattern || 'Novel Scope';
+      tabScopeNovel.classList.add('active');
+      tabScopeGlobal.classList.remove('active');
+      btnToggleScopeEdit.style.display = 'inline-flex';
+    }
+    renderList();
+  }
+
+  btnToggleScopeEdit.addEventListener('click', () => {
+    const isVisible = scopeEditPanel.style.display === 'flex';
+    scopeEditPanel.style.display = isVisible ? 'none' : 'flex';
+    if (!isVisible) {
+      inputScopePattern.value = activeScopePattern;
+      inputScopePattern.focus();
+    }
+  });
+
+  btnSaveScope.addEventListener('click', async () => {
+    const newPattern = inputScopePattern.value.trim();
+    if (!newPattern) {
+      showFeedback('Scope pattern cannot be empty.', 'error');
+      return;
     }
 
-    await StorageAdapter.set(dictionary);
-    renderList();
-    notifyContentScript();
-
-    inputOriginal.value = '';
-    inputReplacement.value = '';
-    inputOriginal.focus();
-  }
-
-  async function removeTerm(index) {
-    const removed = dictionary.splice(index, 1)[0];
-    await StorageAdapter.set(dictionary);
-    renderList();
-    notifyContentScript();
-    showFeedback(`Removed "${removed.from}"`);
-  }
-
-  async function clearAllTerms() {
-    if (dictionary.length === 0) return;
-    if (confirm('Are you sure you want to clear the entire dictionary?')) {
-      dictionary = [];
-      await StorageAdapter.set(dictionary);
-      renderList();
-      notifyContentScript();
-      showFeedback('Dictionary cleared.');
+    // Migrate old scope data if renaming
+    if (activeScopePattern !== newPattern) {
+      if (scopeDictionaries[activeScopePattern] && !scopeDictionaries[newPattern]) {
+        scopeDictionaries[newPattern] = scopeDictionaries[activeScopePattern];
+        delete scopeDictionaries[activeScopePattern];
+      }
+      activeScopePattern = newPattern;
+      await StorageAdapter.saveScopes(scopeDictionaries);
     }
-  }
+
+    scopeEditPanel.style.display = 'none';
+    updateScopeUI();
+    notifyContentScript();
+    showFeedback(`Scope pattern updated: ${activeScopePattern}`);
+  });
+
+  btnCancelScope.addEventListener('click', () => {
+    scopeEditPanel.style.display = 'none';
+  });
+
+  tabScopeNovel.addEventListener('click', () => {
+    if (currentScopeMode !== 'NOVEL') {
+      currentScopeMode = 'NOVEL';
+      updateScopeUI();
+    }
+  });
+
+  tabScopeGlobal.addEventListener('click', () => {
+    if (currentScopeMode !== 'GLOBAL') {
+      currentScopeMode = 'GLOBAL';
+      scopeEditPanel.style.display = 'none';
+      updateScopeUI();
+    }
+  });
 
   // ==========================================
-  // SYNC WITH ACTIVE TAB
+  // 8. TAB MESSAGING HELPERS
   // ==========================================
-  function notifyContentScript() {
+  function sendTabMessage(payload, callback) {
     if (typeof chrome !== 'undefined' && chrome.tabs && chrome.tabs.query) {
       chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
         if (tabs && tabs[0] && tabs[0].id) {
-          chrome.tabs.sendMessage(tabs[0].id, {
-            action: 'APPLY_DICTIONARY',
-            dictionary: dictionary
+          chrome.tabs.sendMessage(tabs[0].id, payload).then((res) => {
+            if (callback) callback(res);
           }).catch(() => {
-            // Tab might not host a content script
+            if (callback) callback(null);
           });
+        } else if (callback) {
+          callback(null);
         }
       });
+    } else if (callback) {
+      callback(null);
     }
   }
 
-  // ==========================================
-  // DETECT ACTIVE HOSTNAME
-  // ==========================================
-  function detectActiveTab() {
-    if (typeof chrome !== 'undefined' && chrome.tabs && chrome.tabs.query) {
-      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-        if (tabs && tabs[0] && tabs[0].url) {
-          try {
-            const url = new URL(tabs[0].url);
-            currentHostname = url.hostname || 'Reading page';
-            siteHostnameEl.textContent = currentHostname;
-          } catch (e) {
-            siteHostnameEl.textContent = 'Web page';
-          }
-        }
-      });
-    } else {
-      siteHostnameEl.textContent = window.location.hostname || 'localhost';
-    }
+  function notifyContentScript() {
+    sendTabMessage({
+      action: 'APPLY_DICTIONARY',
+      dictionary: getCurrentActiveList()
+    });
   }
 
   // ==========================================
-  // TOOLBAR 4 BUTTONS IMPLEMENTATION
+  // 9. TOOLBAR BUTTONS
   // ==========================================
-
-  // 1. Home Button
   btnHome.addEventListener('click', () => {
     termListContainer.scrollTop = 0;
     inputOriginal.focus();
     showFeedback('Scrolled to top.');
   });
 
-  // 2. Login Button
   btnLogin.addEventListener('click', () => {
     if (!isLoggedIn) {
       const username = prompt('Enter your username or email for cloud sync:');
@@ -261,7 +488,6 @@
     }
   });
 
-  // 3. Import Button
   btnImport.addEventListener('click', () => {
     fileImportInput.click();
   });
@@ -275,6 +501,7 @@
       const content = event.target.result;
       const lines = content.split(/\r?\n/);
       let count = 0;
+      const currentList = getCurrentActiveList();
 
       for (let line of lines) {
         line = line.trim();
@@ -285,18 +512,21 @@
           const from = parts[0].trim();
           const to = parts.slice(1).join('-').trim();
           if (from && to) {
-            const existIdx = dictionary.findIndex(d => d.from.toLowerCase() === from.toLowerCase());
+            const resolution = resolveToPristineSource(from, currentList);
+            const finalFrom = resolution.pristineFrom;
+
+            const existIdx = currentList.findIndex(d => d.from.toLowerCase() === finalFrom.toLowerCase());
             if (existIdx >= 0) {
-              dictionary[existIdx].to = to;
+              currentList[existIdx].to = to;
             } else {
-              dictionary.push({ from, to, preserveCase: true });
+              currentList.push({ from: finalFrom, to, preserveCase: true });
             }
             count++;
           }
         }
       }
 
-      await StorageAdapter.set(dictionary);
+      await saveCurrentActiveList(currentList);
       renderList();
       notifyContentScript();
       showFeedback(`Successfully imported ${count} term pairs.`);
@@ -310,21 +540,22 @@
     reader.readAsText(file, 'utf-8');
   });
 
-  // 4. Export Button
   btnExport.addEventListener('click', () => {
-    if (dictionary.length === 0) {
-      showFeedback('Dictionary is empty. Nothing to export.', 'error');
+    const currentList = getCurrentActiveList();
+    if (currentList.length === 0) {
+      showFeedback('Current dictionary is empty. Nothing to export.', 'error');
       return;
     }
 
     const textLines = [
       `# NOVEL GLOSSARY - ADJUSTING WRITING STYLE`,
+      `# Scope: ${currentScopeMode === 'GLOBAL' ? 'Global' : activeScopePattern}`,
       `# Export Date: ${new Date().toISOString().split('T')[0]}`,
       `# Format: original - replacement`,
       ''
     ];
 
-    dictionary.forEach(d => {
+    currentList.forEach(d => {
       textLines.push(`${d.from} - ${d.to}`);
     });
 
@@ -333,9 +564,9 @@
     const url = URL.createObjectURL(blob);
     const downloadAnchor = document.createElement('a');
 
-    const cleanHost = currentHostname.replace(/[^a-zA-Z0-9.-]/g, '_');
+    const cleanName = (currentScopeMode === 'GLOBAL' ? 'global' : activeScopePattern).replace(/[^a-zA-Z0-9.-]/g, '_');
     downloadAnchor.href = url;
-    downloadAnchor.download = `dictionary-${cleanHost}.txt`;
+    downloadAnchor.download = `dictionary-${cleanName}.txt`;
     document.body.appendChild(downloadAnchor);
     downloadAnchor.click();
     document.body.removeChild(downloadAnchor);
@@ -345,8 +576,12 @@
   });
 
   // ==========================================
-  // EVENT LISTENERS & INITIALIZATION
+  // 10. EVENT LISTENERS & INITIALIZATION
   // ==========================================
+  inputOriginal.addEventListener('input', (e) => {
+    triggerLiveSearch(e.target.value);
+  });
+
   formAddTerm.addEventListener('submit', (e) => {
     e.preventDefault();
     addTerm(inputOriginal.value, inputReplacement.value, checkPreserveCase.checked);
@@ -354,10 +589,25 @@
 
   btnClearAll.addEventListener('click', clearAllTerms);
 
+  window.addEventListener('beforeunload', () => {
+    sendTabMessage({ action: 'CLEAR_HIGHLIGHTS' });
+  });
+
   async function init() {
-    detectActiveTab();
-    dictionary = await StorageAdapter.get();
-    renderList();
+    const data = await StorageAdapter.getAll();
+    globalDictionary = data.global;
+    scopeDictionaries = data.scopes;
+
+    // Detect active tab and pattern
+    sendTabMessage({ action: 'GET_PAGE_INFO' }, (info) => {
+      if (info && info.novelInfo) {
+        currentHostname = info.hostname || 'Reading page';
+        activeScopePattern = info.novelInfo.pattern;
+      } else {
+        activeScopePattern = `${window.location.hostname || 'reading-site'}/*`;
+      }
+      updateScopeUI();
+    });
   }
 
   init();
