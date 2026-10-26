@@ -1,10 +1,11 @@
 /**
  * Adjusting Writing Style - Popup Controller
  * Implements:
- * 1. Live Match Counter & In-Page Highlight.
- * 2. Automated Reverse Resolution & Rule Merging.
- * 3. Per-Novel Slug Scoping & Custom Scope/Domain Editor.
- * 4. Monochrome Hollow Line UI System.
+ * 1. Direct & Instant URL Pattern Extraction from Active Tab.
+ * 2. Auto-Injection & Live Search/Highlight with In-Page Scrolling.
+ * 3. Automated Reverse Resolution & Rule Merging.
+ * 4. Per-Novel Slug Scoping & Custom Scope/Domain Editor.
+ * 5. Monochrome Hollow Line UI System.
  */
 
 (() => {
@@ -43,10 +44,10 @@
 
   // State
   let globalDictionary = [];
-  let scopeDictionaries = {}; // { [pattern]: [ { from, to, preserveCase } ] }
-  let currentScopeMode = 'NOVEL'; // 'NOVEL' | 'GLOBAL'
+  let scopeDictionaries = {};
+  let currentScopeMode = 'NOVEL';
   let activeScopePattern = '';
-  let activeTabId = null;
+  let activeTabUrl = '';
   let currentHostname = 'Reading page';
   let isLoggedIn = false;
   let searchDebounceTimer = null;
@@ -117,7 +118,31 @@
   }
 
   // ==========================================
-  // 2. FEEDBACK BANNER
+  // 2. URL PATTERN EXTRACTION
+  // ==========================================
+  function extractPatternFromUrl(urlStr) {
+    if (!urlStr) return 'reading-site/*';
+    try {
+      const url = new URL(urlStr);
+      if (url.protocol.startsWith('chrome') || url.protocol.startsWith('edge') || url.protocol === 'about:') {
+        return 'reading-site/*';
+      }
+      const host = url.hostname;
+      const segments = url.pathname.split('/').filter(Boolean);
+      if (segments.length > 0) {
+        segments.pop(); // Remove chapter slug (e.g. c636660-chuong-635-vi-giai)
+      }
+      if (segments.length > 0) {
+        return `${host}/${segments.join('/')}/*`;
+      }
+      return `${host}/*`;
+    } catch (e) {
+      return 'reading-site/*';
+    }
+  }
+
+  // ==========================================
+  // 3. FEEDBACK BANNER
   // ==========================================
   let feedbackTimer = null;
   function showFeedback(message, type = 'success') {
@@ -132,7 +157,7 @@
   }
 
   // ==========================================
-  // 3. LIVE MATCH SEARCH & IN-PAGE HIGHLIGHT
+  // 4. LIVE MATCH SEARCH & IN-PAGE HIGHLIGHT
   // ==========================================
   function escapeRegExp(str) {
     return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -149,7 +174,7 @@
 
     searchDebounceTimer = setTimeout(() => {
       sendTabMessage({ action: 'SEARCH_TERM', query: text.trim() }, (response) => {
-        if (!response) {
+        if (!response || typeof response.count === 'undefined') {
           matchCounterBadge.style.display = 'none';
           return;
         }
@@ -164,16 +189,16 @@
           matchCounterBadge.textContent = '0 matches';
         }
       });
-    }, 120);
+    }, 100);
   }
 
   // ==========================================
-  // 4. AUTOMATED REVERSE RESOLUTION & MERGING
+  // 5. AUTOMATED REVERSE RESOLUTION & MERGING
   // ==========================================
   function resolveToPristineSource(rawFrom, currentDict) {
     const fromLower = rawFrom.trim().toLowerCase();
 
-    // 1. Check if user is reversing an existing rule (B -> A when A -> B exists)
+    // 1. Direct chain match (A -> B, now user enters B)
     const reverseMatch = currentDict.find(d => d.to.toLowerCase() === fromLower);
     if (reverseMatch) {
       return {
@@ -183,7 +208,7 @@
       };
     }
 
-    // 2. Check if user input contains a phrase that was already translated
+    // 2. Substring resolution (phrase contains a translated substring)
     let resolved = rawFrom.trim();
     let modified = false;
     const sortedByToLength = [...currentDict].sort((a, b) => b.to.length - a.to.length);
@@ -211,7 +236,7 @@
   }
 
   // ==========================================
-  // 5. TERM ACTIONS
+  // 6. TERM ACTIONS
   // ==========================================
   async function addTerm(rawFrom, rawTo, preserveCase = true) {
     rawFrom = rawFrom.trim();
@@ -232,7 +257,6 @@
     const finalFrom = resolution.pristineFrom;
 
     if (finalFrom.toLowerCase() === rawTo.toLowerCase()) {
-      // Reverted back to original: remove the rule
       const idx = currentList.findIndex(d => d.from.toLowerCase() === finalFrom.toLowerCase());
       if (idx >= 0) {
         currentList.splice(idx, 1);
@@ -247,7 +271,6 @@
       }
     }
 
-    // Check if pristine rule already exists
     const existingIndex = currentList.findIndex(d => d.from.toLowerCase() === finalFrom.toLowerCase());
     if (existingIndex >= 0) {
       currentList[existingIndex].to = rawTo;
@@ -298,7 +321,7 @@
   }
 
   // ==========================================
-  // 6. RENDER TERM LIST
+  // 7. RENDER TERM LIST
   // ==========================================
   function renderList() {
     const list = getCurrentActiveList();
@@ -339,7 +362,6 @@
       pairContent.appendChild(arrowSpan);
       pairContent.appendChild(replacementSpan);
 
-      // Hollow outline trash icon
       const btnRemove = document.createElement('button');
       btnRemove.type = 'button';
       btnRemove.className = 'btn-remove-term';
@@ -364,7 +386,7 @@
   }
 
   // ==========================================
-  // 7. SCOPE MANAGEMENT & CUSTOM DOMAIN EDIT
+  // 8. SCOPE MANAGEMENT & CUSTOM DOMAIN EDIT
   // ==========================================
   function updateScopeUI() {
     if (currentScopeMode === 'GLOBAL') {
@@ -397,7 +419,6 @@
       return;
     }
 
-    // Migrate old scope data if renaming
     if (activeScopePattern !== newPattern) {
       if (scopeDictionaries[activeScopePattern] && !scopeDictionaries[newPattern]) {
         scopeDictionaries[newPattern] = scopeDictionaries[activeScopePattern];
@@ -433,20 +454,46 @@
   });
 
   // ==========================================
-  // 8. TAB MESSAGING HELPERS
+  // 9. TAB MESSAGING WITH AUTO-INJECTION
   // ==========================================
   function sendTabMessage(payload, callback) {
     if (typeof chrome !== 'undefined' && chrome.tabs && chrome.tabs.query) {
       chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-        if (tabs && tabs[0] && tabs[0].id) {
-          chrome.tabs.sendMessage(tabs[0].id, payload).then((res) => {
-            if (callback) callback(res);
-          }).catch(() => {
-            if (callback) callback(null);
-          });
-        } else if (callback) {
-          callback(null);
+        if (!tabs || !tabs[0] || !tabs[0].id) {
+          if (callback) callback(null);
+          return;
         }
+
+        const tabId = tabs[0].id;
+        chrome.tabs.sendMessage(tabId, payload, (res) => {
+          if (chrome.runtime.lastError) {
+            // Auto-inject content script into pre-existing tabs
+            if (typeof chrome.scripting !== 'undefined') {
+              chrome.scripting.executeScript({
+                target: { tabId: tabId },
+                files: ['content.js']
+              }, () => {
+                if (chrome.runtime.lastError) {
+                  if (callback) callback(null);
+                  return;
+                }
+                setTimeout(() => {
+                  chrome.tabs.sendMessage(tabId, payload, (retryRes) => {
+                    if (chrome.runtime.lastError) {
+                      if (callback) callback(null);
+                    } else if (callback) {
+                      callback(retryRes);
+                    }
+                  });
+                }, 80);
+              });
+              return;
+            }
+            if (callback) callback(null);
+            return;
+          }
+          if (callback) callback(res);
+        });
       });
     } else if (callback) {
       callback(null);
@@ -461,7 +508,7 @@
   }
 
   // ==========================================
-  // 9. TOOLBAR BUTTONS
+  // 10. TOOLBAR BUTTONS
   // ==========================================
   btnHome.addEventListener('click', () => {
     termListContainer.scrollTop = 0;
@@ -576,7 +623,7 @@
   });
 
   // ==========================================
-  // 10. EVENT LISTENERS & INITIALIZATION
+  // 11. EVENT LISTENERS & INITIALIZATION
   // ==========================================
   inputOriginal.addEventListener('input', (e) => {
     triggerLiveSearch(e.target.value);
@@ -598,16 +645,26 @@
     globalDictionary = data.global;
     scopeDictionaries = data.scopes;
 
-    // Detect active tab and pattern
-    sendTabMessage({ action: 'GET_PAGE_INFO' }, (info) => {
-      if (info && info.novelInfo) {
-        currentHostname = info.hostname || 'Reading page';
-        activeScopePattern = info.novelInfo.pattern;
-      } else {
-        activeScopePattern = `${window.location.hostname || 'reading-site'}/*`;
-      }
+    // Detect active tab and pattern DIRECTLY from tab.url synchronously
+    if (typeof chrome !== 'undefined' && chrome.tabs && chrome.tabs.query) {
+      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        if (tabs && tabs[0] && tabs[0].url) {
+          activeTabUrl = tabs[0].url;
+          try {
+            currentHostname = new URL(activeTabUrl).hostname;
+          } catch (e) {
+            currentHostname = 'Reading page';
+          }
+          activeScopePattern = extractPatternFromUrl(activeTabUrl);
+        } else {
+          activeScopePattern = 'reading-site/*';
+        }
+        updateScopeUI();
+      });
+    } else {
+      activeScopePattern = `${window.location.hostname || 'reading-site'}/*`;
       updateScopeUI();
-    });
+    }
   }
 
   init();

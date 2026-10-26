@@ -5,7 +5,8 @@
   "description": "Seamlessly replace and adjust story terminology and writing styles in-browser.",
   "permissions": [
     "storage",
-    "activeTab"
+    "activeTab",
+    "scripting"
   ],
   "host_permissions": [
     "<all_urls>"

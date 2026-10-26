@@ -119,7 +119,10 @@
     }
 
     let totalMatches = 0;
+    let firstMark = null;
+
     for (const textNode of matchingNodes) {
+      regex.lastIndex = 0;
       const text = textNode.nodeValue;
       const parent = textNode.parentNode;
       if (!parent) continue;
@@ -136,10 +139,11 @@
 
         const mark = document.createElement('mark');
         mark.className = 'novel-match-highlight';
-        mark.style.cssText = 'background: rgba(254, 240, 138, 0.45); color: inherit; outline: 1px dashed rgba(202, 138, 4, 0.8); border-radius: 2px; padding: 0 1px;';
+        mark.style.cssText = 'background-color: #FEF08A !important; color: #854D0E !important; outline: 2px solid #FACC15 !important; border-radius: 2px !important; padding: 1px 3px !important; box-shadow: 0 0 6px rgba(250, 204, 21, 0.8) !important; font-weight: bold !important; display: inline !important;';
         mark.textContent = match[0];
         fragment.appendChild(mark);
 
+        if (!firstMark) firstMark = mark;
         lastIdx = regex.lastIndex;
       }
 
@@ -148,6 +152,10 @@
       }
 
       parent.replaceChild(fragment, textNode);
+    }
+
+    if (firstMark) {
+      firstMark.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
 
     return { count: totalMatches };
