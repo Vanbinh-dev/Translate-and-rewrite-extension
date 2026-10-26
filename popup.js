@@ -31,6 +31,8 @@
 
   const apiStatusBadge = document.getElementById('api-status-badge');
   const selectAiProvider = document.getElementById('select-ai-provider');
+  const customGeminiGroup = document.getElementById('custom-gemini-group');
+  const inputCustomGeminiModel = document.getElementById('input-custom-gemini-model');
   const customEndpointGroup = document.getElementById('custom-endpoint-group');
   const inputCustomEndpoint = document.getElementById('input-custom-endpoint');
   const inputApiToken = document.getElementById('input-api-token');
@@ -678,6 +680,11 @@
       const providerKey = `${config.provider}:${config.model}`;
       if (selectAiProvider.querySelector(`option[value="${providerKey}"]`)) {
         selectAiProvider.value = providerKey;
+        if (customGeminiGroup) customGeminiGroup.style.display = 'none';
+      } else if (config.provider === 'gemini') {
+        selectAiProvider.value = 'gemini:custom';
+        if (customGeminiGroup) customGeminiGroup.style.display = 'flex';
+        if (inputCustomGeminiModel) inputCustomGeminiModel.value = config.model || '';
       }
       inputCustomEndpoint.value = config.customEndpoint || '';
       customEndpointGroup.style.display = config.provider === 'openai' && config.model === 'custom' ? 'flex' : 'none';
@@ -717,7 +724,12 @@
 
   selectAiProvider.addEventListener('change', (e) => {
     const val = e.target.value;
-    customEndpointGroup.style.display = val === 'openai:custom' ? 'flex' : 'none';
+    if (customGeminiGroup) {
+      customGeminiGroup.style.display = val === 'gemini:custom' ? 'flex' : 'none';
+    }
+    if (customEndpointGroup) {
+      customEndpointGroup.style.display = val === 'openai:custom' ? 'flex' : 'none';
+    }
   });
 
   btnToggleTokenVisibility.addEventListener('click', () => {
@@ -733,7 +745,10 @@
       return;
     }
 
-    const [provider, model] = selectAiProvider.value.split(':');
+    let [provider, model] = selectAiProvider.value.split(':');
+    if (provider === 'gemini' && model === 'custom') {
+      model = (inputCustomGeminiModel.value || '').trim() || 'gemini-3.8-flash';
+    }
     const customEndpoint = inputCustomEndpoint.value.trim();
 
     await AIAssistant.saveToken(token);

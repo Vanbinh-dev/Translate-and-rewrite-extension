@@ -10,7 +10,7 @@
 
   const DEFAULT_CONFIG = {
     provider: 'gemini', // 'gemini' | 'openai'
-    model: 'gemini-2.5-flash',
+    model: 'gemini-3.8-flash',
     customEndpoint: ''
   };
 
@@ -143,8 +143,9 @@
     },
 
     async callGemini(token, config, prompt) {
-      const model = config.model || 'gemini-2.5-flash';
-      const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(token)}`;
+      const rawModel = config.model || 'gemini-3.8-flash';
+      const cleanModel = rawModel.replace(/^models\//, '').trim();
+      const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${cleanModel}:generateContent?key=${encodeURIComponent(token)}`;
 
       const payload = {
         contents: [
