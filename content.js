@@ -74,45 +74,65 @@
   }
 
   // ==========================================
-  // 3. LIVE SEARCH & IN-PAGE HIGHLIGHT
+  // 3. NATIVE CSS CUSTOM HIGHLIGHT ENGINE (ZERO DOM MUTATION)
   // ==========================================
-  let activeMarks = [];
-  let currentMarkIndex = -1;
+  const supportsCustomHighlight = typeof CSS !== 'undefined' && typeof CSS.highlights !== 'undefined';
+  let activeRanges = [];
+  let currentRangeIndex = -1;
 
-  function clearSearchHighlights() {
-    const marks = document.querySelectorAll('.novel-match-highlight');
-    marks.forEach(mark => {
-      const parent = mark.parentNode;
-      if (parent) {
-        while (mark.firstChild) {
-          parent.insertBefore(mark.firstChild, mark);
+  function ensureHighlightStyles() {
+    if (!document.getElementById('novel-search-highlight-style')) {
+      const style = document.createElement('style');
+      style.id = 'novel-search-highlight-style';
+      style.textContent = `
+        ::highlight(novel-search) {
+          background-color: #FEF08A;
+          color: #854D0E;
         }
-        parent.removeChild(mark);
-        parent.normalize();
-      }
-    });
-    activeMarks = [];
-    currentMarkIndex = -1;
+        ::highlight(novel-search-active) {
+          background-color: #EA580C;
+          color: #FFFFFF;
+        }
+      `;
+      (document.head || document.documentElement).appendChild(style);
+    }
   }
 
-  function updateActiveMarkFocus(index) {
-    if (activeMarks.length === 0) return;
-    activeMarks.forEach((m, idx) => {
-      if (idx === index) {
-        m.classList.add('novel-match-focused');
-        m.style.setProperty('outline', '2px solid #EA580C', 'important');
-        m.style.setProperty('background-color', '#FDE047', 'important');
-        m.style.setProperty('box-shadow', '0 0 8px rgba(234, 88, 12, 0.9)', 'important');
-      } else {
-        m.classList.remove('novel-match-focused');
-        m.style.setProperty('outline', '2px solid #FACC15', 'important');
-        m.style.setProperty('background-color', '#FEF08A', 'important');
-        m.style.setProperty('box-shadow', '0 0 4px rgba(250, 204, 21, 0.6)', 'important');
-      }
-    });
-    const target = activeMarks[index];
-    if (target) {
-      target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  function clearSearchHighlights() {
+    if (supportsCustomHighlight) {
+      CSS.highlights.delete('novel-search');
+      CSS.highlights.delete('novel-search-active');
+    }
+    const marks = document.querySelectorAll('.novel-match-highlight');
+    if (marks.length > 0) {
+      marks.forEach(mark => {
+        const parent = mark.parentNode;
+        if (parent) {
+          while (mark.firstChild) {
+            parent.insertBefore(mark.firstChild, mark);
+          }
+          parent.removeChild(mark);
+        }
+      });
+      document.body?.normalize();
+    }
+    activeRanges = [];
+    currentRangeIndex = -1;
+  }
+
+  function updateActiveHighlight(index) {
+    if (activeRanges.length === 0 || index < 0 || index >= activeRanges.length) return;
+    currentRangeIndex = index;
+    const targetRange = activeRanges[currentRangeIndex];
+
+    if (supportsCustomHighlight) {
+      const activeHighlight = new Highlight(targetRange);
+      CSS.highlights.set('novel-search-active', activeHighlight);
+    }
+
+    const container = targetRange.startContainer.parentElement;
+    if (container) {
+      container.scrollIntoView({ behavior: 'auto', block: 'center' });
     }
   }
 
@@ -120,83 +140,56 @@
     clearSearchHighlights();
     if (!query || !query.trim()) return { count: 0, currentIndex: 0 };
 
-    isProcessing = true;
-    try {
-      const trimmed = query.trim();
-      const escaped = escapeRegExp(trimmed);
-      const regex = new RegExp(escaped, 'gi');
+    ensureHighlightStyles();
 
-      const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {
-        acceptNode: (node) => {
-          if (shouldFilterTag(node)) return NodeFilter.FILTER_REJECT;
-          if (node.parentElement?.classList?.contains('novel-match-highlight')) {
-            return NodeFilter.FILTER_REJECT;
-          }
-          return NodeFilter.FILTER_ACCEPT;
-        }
-      });
+    const trimmed = query.trim();
+    const escaped = escapeRegExp(trimmed);
+    const regex = new RegExp(escaped, 'gi');
 
-      const matchingNodes = [];
-      let node;
-      while ((node = walker.nextNode())) {
-        if (regex.test(node.nodeValue)) {
-          matchingNodes.push(node);
-        }
-        regex.lastIndex = 0;
+    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {
+      acceptNode: (node) => {
+        if (shouldFilterTag(node)) return NodeFilter.FILTER_REJECT;
+        return NodeFilter.FILTER_ACCEPT;
       }
+    });
 
-      for (const textNode of matchingNodes) {
-        regex.lastIndex = 0;
-        const text = textNode.nodeValue;
-        const parent = textNode.parentNode;
-        if (!parent) continue;
-
-        const fragment = document.createDocumentFragment();
-        let lastIdx = 0;
-        let match;
-
-        while ((match = regex.exec(text)) !== null) {
-          if (match.index > lastIdx) {
-            fragment.appendChild(document.createTextNode(text.substring(lastIdx, match.index)));
-          }
-
-          const mark = document.createElement('mark');
-          mark.className = 'novel-match-highlight';
-          mark.style.cssText = 'background-color: #FEF08A !important; color: #854D0E !important; outline: 2px solid #FACC15 !important; border-radius: 2px !important; padding: 1px 3px !important; box-shadow: 0 0 4px rgba(250, 204, 21, 0.6) !important; font-weight: bold !important; display: inline !important; cursor: pointer; transition: all 120ms ease;';
-          mark.textContent = match[0];
-          fragment.appendChild(mark);
-
-          activeMarks.push(mark);
-          lastIdx = regex.lastIndex;
+    let node;
+    while ((node = walker.nextNode())) {
+      const text = node.nodeValue;
+      let match;
+      regex.lastIndex = 0;
+      while ((match = regex.exec(text)) !== null) {
+        try {
+          const range = new Range();
+          range.setStart(node, match.index);
+          range.setEnd(node, match.index + match[0].length);
+          activeRanges.push(range);
+        } catch (e) {
+          // Ignore range boundary errors
         }
-
-        if (lastIdx < text.length) {
-          fragment.appendChild(document.createTextNode(text.substring(lastIdx)));
-        }
-
-        parent.replaceChild(fragment, textNode);
       }
-
-      if (activeMarks.length > 0) {
-        currentMarkIndex = 0;
-        updateActiveMarkFocus(0);
-      }
-
-      return { count: activeMarks.length, currentIndex: activeMarks.length > 0 ? 1 : 0 };
-    } finally {
-      isProcessing = false;
     }
+
+    if (activeRanges.length > 0) {
+      if (supportsCustomHighlight) {
+        const allHighlight = new Highlight(...activeRanges);
+        CSS.highlights.set('novel-search', allHighlight);
+      }
+      updateActiveHighlight(0);
+    }
+
+    return { count: activeRanges.length, currentIndex: activeRanges.length > 0 ? 1 : 0 };
   }
 
   function navigateSearchMatch(direction) {
-    if (activeMarks.length === 0) return { count: 0, currentIndex: 0 };
+    if (activeRanges.length === 0) return { count: 0, currentIndex: 0 };
     if (direction === 'next') {
-      currentMarkIndex = (currentMarkIndex + 1) % activeMarks.length;
+      currentRangeIndex = (currentRangeIndex + 1) % activeRanges.length;
     } else {
-      currentMarkIndex = (currentMarkIndex - 1 + activeMarks.length) % activeMarks.length;
+      currentRangeIndex = (currentRangeIndex - 1 + activeRanges.length) % activeRanges.length;
     }
-    updateActiveMarkFocus(currentMarkIndex);
-    return { count: activeMarks.length, currentIndex: currentMarkIndex + 1 };
+    updateActiveHighlight(currentRangeIndex);
+    return { count: activeRanges.length, currentIndex: currentRangeIndex + 1 };
   }
 
   // ==========================================

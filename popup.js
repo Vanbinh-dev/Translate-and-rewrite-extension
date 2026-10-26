@@ -248,7 +248,7 @@
           matchCounterBadge.textContent = '0 matches';
         }
       });
-    }, 120);
+    }, 60);
   }
 
   function navigateMatch(direction) {
